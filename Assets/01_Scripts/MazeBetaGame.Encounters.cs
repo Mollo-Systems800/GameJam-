@@ -8,6 +8,11 @@ public sealed partial class MazeBetaGame
     public GameObject turretEnemyPrefab;
     public GameObject projectilePrefab;
     public GameObject coinPrefab;
+    [Header("Modelos de torretas, monedas y proyectiles")]
+    public GameObject turretBaseVisualPrefab;
+    public GameObject turretBarrelVisualPrefab;
+    public GameObject coinVisualPrefab;
+    public GameObject projectileVisualPrefab;
     [Header("Ambientacion y tienda")]
     public GameObject shopkeeperPrefab;
     public GameObject chairPrefab;
@@ -77,12 +82,12 @@ public sealed partial class MazeBetaGame
     {
         // Furnish only closed sides of safe cells, leaving centre-to-centre routes clear.
         float npcInset = WallThickness * 0.5f + 0.35f;
-        if (shopkeeperPrefab && cellSize * 0.5f - npcInset > 0.56f)
+        if (EnvShopkeeper && cellSize * 0.5f - npcInset > 0.56f)
         {
             for (int d = 0; d < 4; d++)
             {
                 if (Grid.IsOpen(0, d)) continue;
-                var npc = SpawnWallProp(shopkeeperPrefab, "Anderson - Tienda", 0, d,
+                var npc = SpawnWallProp(EnvShopkeeper, "Anderson - Tienda", 0, d,
                     new Vector3(1.6f, 1.65f, 0.6f), npcInset);
                 var shape = npc.AddComponent<CapsuleCollider>();
                 shape.height = 1.65f;
@@ -93,7 +98,7 @@ public sealed partial class MazeBetaGame
                 break;
             }
         }
-        if (!chairPrefab || chairCount <= 0) return;
+        if (!EnvChair || chairCount <= 0) return;
         var reserved = new System.Collections.Generic.HashSet<int>(obstacleCells) { 0, bossCell };
         foreach (var exit in Grid.Exits) reserved.Add(exit.Cell);
         foreach (int cell in Encounters.Spades) reserved.Add(cell);
@@ -120,7 +125,7 @@ public sealed partial class MazeBetaGame
                 // Keep a clear central lane even at the minimum supported cell size.
                 float width = Mathf.Min(0.8f, cellSize * 0.5f - WallThickness * 0.5f - 0.5f);
                 if (width < 0.3f) break;
-                var chair = SpawnWallProp(chairPrefab, "Inter Chair " + cell, cell, d,
+                var chair = SpawnWallProp(EnvChair, "Inter Chair " + cell, cell, d,
                     new Vector3(width, 1, width), WallThickness * 0.5f + width * 0.5f + 0.08f);
                 var shape = chair.AddComponent<BoxCollider>();
                 shape.size = new Vector3(width, 0.8f, width);
@@ -150,8 +155,16 @@ public sealed partial class MazeBetaGame
         projectile.Initialize(this, direction, speed, damage, shooter);
     }
 
-    public GameObject CreatePrimitiveVisual(PrimitiveType shape, Transform parent, Vector3 size, Vector3 offset, bool gold)
+    public GameObject CreatePrimitiveVisual(PrimitiveType shape, Transform parent, Vector3 size, Vector3 offset, bool gold, GameObject visualPrefab = null)
     {
+        if (visualPrefab)
+        {
+            var wrapper = new GameObject("Prefab visual");
+            wrapper.transform.SetParent(parent, false);
+            FitVisual(visualPrefab, wrapper.transform, size, true);
+            wrapper.transform.localPosition = offset - Vector3.up * size.y * 0.5f;
+            return wrapper;
+        }
         var visual = GameObject.CreatePrimitive(shape);
         visual.name = gold ? "Coin visual" : "Enemy visual";
         visual.transform.SetParent(parent, false);

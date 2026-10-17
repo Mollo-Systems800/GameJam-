@@ -1,6 +1,7 @@
 using System;
 
-public enum PlayerRigBone { Hips, Chest, LeftThigh, LeftShin, RightThigh, RightShin, LeftArm, LeftForearm, RightArm, RightForearm }
+// Append bones so existing baked motion track indices remain compatible.
+public enum PlayerRigBone { Hips, Chest, LeftThigh, LeftShin, RightThigh, RightShin, LeftArm, LeftForearm, RightArm, RightForearm, Spine }
 
 // Shared character-space weights keep coincident vertices on separate clothing meshes together.
 public static class PlayerRigWeights

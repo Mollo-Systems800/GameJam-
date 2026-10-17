@@ -12,18 +12,30 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     [Min(0.35f)] public float wallThickness = 0.75f;
     [Min(2)] public float wallHeight = 2.6f;
     public float WallThickness => Mathf.Clamp(wallThickness, 0.35f, Mathf.Max(0.35f, cellSize - 0.9f));
-    [Range(1, 8)] public int exitCount = 4;
+    [HideInInspector] public int exitCount = 1;
     [Range(0, 0.6f)] public float alternativeRoutes = 0.25f;
     public bool randomSeed = true;
     public int seed = 12345;
     public GameObject wallPrefab;
     public GameObject floorPrefab;
+    [Header("Piezas generadas del escenario")]
+    public GameObject wallCorePrefab;
+    public GameObject wallCapPrefab;
+    public GameObject exitFloorPrefab;
+    public GameObject exitMarkerPrefab;
+    public GameObject pitVisualPrefab;
+    public TextMesh worldLabelPrefab;
+    public Camera cameraPrefab;
     [Header("Jugador y recursos visuales opcionales")]
     public GameObject playerPrefab;
     public GameObject bossVisualPrefab;
     public GameObject pillVisualPrefab;
+    public GameObject bossPrefab;
+    public GameObject pillPrefab;
     [Header("Plataformas y salto")]
     public GameObject platformPrefab;
+    public GameObject jumpTakeoffPrefab;
+    public GameObject jumpLandingPrefab;
     [Range(0, 30)] public int obstacleCount = 10;
     public float jumpHeight = 1.1f;
     public float fallDeathHeight = -3f;
@@ -67,9 +79,10 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         view = Camera.main;
         if (!view)
         {
-            var cameraObject = new GameObject("Beta Camera", typeof(Camera), typeof(AudioListener));
-            cameraObject.tag = "MainCamera";
-            view = cameraObject.GetComponent<Camera>();
+            if (cameraPrefab) view = Instantiate(cameraPrefab);
+            else view = new GameObject("Beta Camera", typeof(Camera)).GetComponent<Camera>();
+            view.gameObject.tag = "MainCamera";
+            if (!view.GetComponent<AudioListener>()) view.gameObject.AddComponent<AudioListener>();
         }
         view.nearClipPlane = 0.04f;
         view.farClipPlane = 150;
@@ -83,7 +96,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         exitMaterial = MakeMaterial(new Color(0.15f, 0.85f, 0.45f));
         platformMaterial = MakeMaterial(new Color(1f, 0.65f, 0.1f));
         InitializeRunFeatures();
-        Begin(randomSeed ? NewSeed() : seed);
+        StartCampaign(randomSeed ? NewSeed() : seed, startLevel);
     }
 
     static int NewSeed() => Guid.NewGuid().GetHashCode();
@@ -97,7 +110,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         }
         labels.Clear();
         ActiveSeed = newSeed;
-        Grid = new MazeGrid(Mathf.Clamp(width, 3, 40), Mathf.Clamp(height, 3, 40), newSeed, exitCount, alternativeRoutes);
+        exitCount = 1;
+        int mazeWidth = Mathf.Clamp(width, 3, 40), mazeHeight = Mathf.Clamp(height, 3, 40);
+        int minimumExit = Mathf.CeilToInt((mazeWidth + mazeHeight - 2) * Mathf.Clamp(minimumExitDistanceRatio, 0.5f, 1));
+        Grid = new MazeGrid(mazeWidth, mazeHeight, newSeed, 1, alternativeRoutes, minimumExit);
+        ApplyAreaTheme();
         obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount);
         generated = new GameObject("Beta Generated Maze").transform;
         generated.SetParent(transform, false);
@@ -113,14 +130,14 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         {
             Vector3 position = CellPosition(cell);
             if (obstacleCells.Contains(cell)) BuildJumpSection(cell);
-            else Module(floorPrefab, "Floor " + cell, position, new Vector3(cellSize, 0.2f, cellSize), false);
+            else Module(EnvFloor, "Floor " + cell, position, new Vector3(cellSize, 0.2f, cellSize), false);
             for (int d = 0; d < 4; d++)
             {
                 if (Grid.IsOpen(cell, d)) continue;
                 int neighbor = Grid.Neighbor(cell, d);
                 if (neighbor >= 0 && neighbor < cell) continue;
                 Vector3 direction = Direction(d);
-                var wall = Module(wallPrefab, "Wall " + cell + " " + d,
+                var wall = Module(EnvWall, "Wall " + cell + " " + d,
                     position + direction * cellSize * 0.5f,
                     new Vector3(cellSize + WallThickness, Mathf.Max(2, wallHeight), WallThickness), true);
                 wall.rotation = Quaternion.Euler(0, d % 2 == 0 ? 0 : 90, 0);
@@ -130,8 +147,8 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         foreach (var exit in Grid.Exits)
         {
             Vector3 exitPosition = CellPosition(exit.Cell) + Direction(exit.Direction) * cellSize;
-            Module(floorPrefab, "Exit platform " + exit.Cell, exitPosition, new Vector3(cellSize, 0.2f, cellSize), false);
-            var marker = Cube("Exit marker", generated, exitMaterial);
+            Module(EnvExitFloor, "Exit platform " + exit.Cell, exitPosition, new Vector3(cellSize, 0.2f, cellSize), false);
+            var marker = Cube("Exit marker", generated, exitMaterial, EnvExitMarker);
             marker.transform.position = exitPosition + Vector3.up * 0.025f;
             marker.transform.localScale = new Vector3(cellSize * 0.8f, 0.05f, cellSize * 0.8f);
             Label("SALIDA", exitPosition + Vector3.up * 1.7f, generated, Color.green, 0.12f);
@@ -161,15 +178,16 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             int difference = Mathf.Abs(distances[i] - desiredDistance);
             if (difference < bestDifference) { bossCell = i; bestDifference = difference; }
         }
-        var bossObject = new GameObject("Boss - Se busca empleo");
-        bossObject.transform.SetParent(generated);
-        Boss = bossObject.AddComponent<MazeBoss>();
+        var bossObject = Spawn(bossPrefab, "Boss - Se busca empleo", CellPosition(bossCell));
+        Boss = bossObject.GetComponent<MazeBoss>();
+        if (!Boss) Boss = bossObject.AddComponent<MazeBoss>();
         Boss.startingSpeed = bossSpeed;
         Boss.speedIncrease = bossIncrease;
         Boss.increaseEvery = bossIncreaseEvery;
         Boss.gracePeriod = bossGracePeriod;
         Boss.Initialize(this, bossCell);
-        if (bossVisualPrefab)
+        bool hasBossVisual = bossObject.GetComponentsInChildren<Renderer>().Length > 0;
+        if (!hasBossVisual && bossVisualPrefab)
         {
             var bossVisual = FitVisual(bossVisualPrefab, bossObject.transform, new Vector3(1.2f, 1.8f, 0.2f), true);
             bool missingTexture = false;
@@ -183,7 +201,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
                     bossObject.transform, Color.black, 0.07f);
             }
         }
-        else
+        else if (!hasBossVisual)
         {
             var paper = Cube("Employment sheet", bossObject.transform, paperMaterial);
             paper.transform.localPosition = Vector3.up;
@@ -204,18 +222,19 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         for (int i = 0; i < Mathf.Min(pillCount, candidates.Count); i++)
         {
             int cell = candidates[i];
-            var pickup = new GameObject("Antidepresivos " + cell);
-            pickup.transform.SetParent(generated);
-            pickup.transform.position = CellPosition(cell) + Vector3.up * 0.65f;
-            if (pillVisualPrefab) FitVisual(pillVisualPrefab, pickup.transform, new Vector3(0.65f, 0.4f, 0.35f), true);
-            else
+            var pickup = Spawn(pillPrefab, "Antidepresivos " + cell, CellPosition(cell) + Vector3.up * 0.65f);
+            bool hasPillVisual = pickup.GetComponentsInChildren<Renderer>().Length > 0;
+            if (!hasPillVisual && pillVisualPrefab) FitVisual(pillVisualPrefab, pickup.transform, new Vector3(0.65f, 0.4f, 0.35f), true);
+            else if (!hasPillVisual)
             {
                 var box = Cube("Pill box", pickup.transform, pillMaterial);
                 box.transform.localScale = new Vector3(0.65f, 0.4f, 0.35f);
                 Label("PASTILLAS", pickup.transform.position + Vector3.up * 0.35f,
                     pickup.transform, Color.white, 0.035f);
             }
-            pickup.AddComponent<PillPickup>().Initialize(this, cell);
+            var pill = pickup.GetComponent<PillPickup>();
+            if (!pill) pill = pickup.AddComponent<PillPickup>();
+            pill.Initialize(this, cell);
         }
         SpawnEncounters(bossCell);
         SpawnSuppliedProps(bossCell);
@@ -302,11 +321,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             // closed solid body and a full-width top so thickness reads from every side.
             if (prefab)
             {
-                var core = Cube("Wall solid core", root, wallMaterial);
+                var core = Cube("Wall solid core", root, wallMaterial, EnvCore);
                 core.transform.localPosition = Vector3.up * size.y * 0.5f;
                 core.transform.localScale = new Vector3(size.x, size.y, size.z * 0.8f);
             }
-            var cap = Cube("Wall top cap", root, wallMaterial);
+            var cap = Cube("Wall top cap", root, wallMaterial, EnvCap);
             cap.transform.localPosition = Vector3.up * (size.y - 0.07f);
             cap.transform.localScale = new Vector3(size.x, 0.14f, size.z);
         }
@@ -325,13 +344,14 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         float lip = cellSize * 0.15f;
         Vector3 axis = vertical ? Vector3.forward : Vector3.right;
         Vector3 lipSize = vertical ? new Vector3(cellSize, 0.2f, lip) : new Vector3(lip, 0.2f, cellSize);
-        Module(floorPrefab, "Jump takeoff " + cell, centre - axis * (cellSize - lip) * 0.5f, lipSize, false);
-        Module(floorPrefab, "Jump landing " + cell, centre + axis * (cellSize - lip) * 0.5f, lipSize, false);
+        Module(EnvTakeoff, "Jump takeoff " + cell, centre - axis * (cellSize - lip) * 0.5f, lipSize, false);
+        Module(EnvLanding, "Jump landing " + cell, centre + axis * (cellSize - lip) * 0.5f, lipSize, false);
         Vector3 size = vertical ? new Vector3(cellSize * 0.55f, 0.35f, cellSize * 0.18f)
                                     : new Vector3(cellSize * 0.18f, 0.35f, cellSize * 0.55f);
-        var platform = Module(platformPrefab, "Jump platform " + cell, centre + Vector3.up * 0.35f, size, false);
-        foreach (var renderer in platform.GetComponentsInChildren<Renderer>()) renderer.sharedMaterial = platformMaterial;
-        var pit = Cube("Precipicio " + cell, generated, wallMaterial);
+        var platform = Module(EnvPlatform, "Jump platform " + cell, centre + Vector3.up * 0.35f, size, false);
+        if (!EnvPlatform)
+            foreach (var renderer in platform.GetComponentsInChildren<Renderer>()) renderer.sharedMaterial = platformMaterial;
+        var pit = Cube("Precipicio " + cell, generated, wallMaterial, EnvPit);
         pit.transform.position = centre + Vector3.down * 5;
         pit.transform.localScale = new Vector3(cellSize, 0.1f, cellSize);
         Label("SALTA", centre + Vector3.up * 1.5f, generated, new Color(1, 0.75f, 0.2f), 0.08f);
@@ -360,29 +380,37 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         return instance;
     }
 
-    static GameObject Cube(string objectName, Transform parent, Material material)
+    static GameObject Cube(string objectName, Transform parent, Material material, GameObject prefab = null)
     {
-        var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        var cube = prefab ? new GameObject(objectName) : GameObject.CreatePrimitive(PrimitiveType.Cube);
         cube.name = objectName;
         cube.transform.SetParent(parent, false);
-        cube.GetComponent<Collider>().enabled = false;
-        cube.GetComponent<Renderer>().sharedMaterial = material;
+        if (prefab) FitVisual(prefab, cube.transform, Vector3.one, false);
+        else
+        {
+            cube.GetComponent<Collider>().enabled = false;
+            cube.GetComponent<Renderer>().sharedMaterial = material;
+        }
         return cube;
     }
 
     void Label(string text, Vector3 position, Transform parent, Color color, float size)
     {
-        var item = new GameObject(text).AddComponent<TextMesh>();
+        var item = EnvLabel ? Instantiate(EnvLabel) : new GameObject(text).AddComponent<TextMesh>();
+        item.name = text;
         item.transform.SetParent(parent);
         item.transform.position = position;
         item.text = text;
-        item.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        item.GetComponent<MeshRenderer>().sharedMaterial = item.font.material;
-        item.fontSize = 48;
-        item.characterSize = size;
-        item.anchor = TextAnchor.MiddleCenter;
-        item.alignment = TextAlignment.Center;
-        item.color = color;
+        if (!EnvLabel)
+        {
+            item.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            item.GetComponent<MeshRenderer>().sharedMaterial = item.font.material;
+            item.fontSize = 48;
+            item.characterSize = size;
+            item.anchor = TextAnchor.MiddleCenter;
+            item.alignment = TextAlignment.Center;
+            item.color = color;
+        }
         labels.Add(item);
     }
 
@@ -408,9 +436,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         Matrix4x4 previous = GUI.matrix;
         GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
         float screenWidth = Screen.width / scale, screenHeight = Screen.height / scale;
-        GUI.Box(new Rect(12, 12, 570, 190), "ESCAPA DEL EMPLEO - BETA");
+        GUI.Box(new Rect(12, 12, 570, 190), $"AREA {CurrentAreaIndex + 1}/3: {ActiveArea.areaName} | NIVEL {CurrentLevelInArea + 1}/3 ({CurrentLevelIndex + 1}/9)");
         GUI.Label(new Rect(25, 40, 440, 25), $"Tiempo: {Elapsed:0}s   Semilla: {ActiveSeed}   Cajas: {Player.Collected}");
-        GUI.Label(new Rect(25, 66, 440, 25), $"Tu velocidad: {Player.CurrentSpeed:0.00}   Boss: {Boss.CurrentSpeed:0.00}");
+        string movement = Player.IsRolling ? "RODANDO" : Player.IsSprinting ? "CORRIENDO"
+            : Player.PlanarSpeed > 0.1f ? "CAMINANDO" : "REPOSO";
+        GUI.Label(new Rect(25, 66, 540, 25), $"Tu velocidad: {Player.PlanarSpeed:0.00} | {movement} | Boss: {Boss.CurrentSpeed:0.00}");
         GUI.Label(new Rect(25, 92, 440, 25), $"Boss acelera en {Boss.NextIncrease:0}s | Fatiga en {Player.NextSlowdown:0}s");
         GUI.Label(new Rect(25, 118, 540, 25), "WASD / flechas / stick: mover | Shift / L3: correr | Esc: pausa");
         GUI.Label(new Rect(25, 144, 540, 25), "Raton / stick: mirar | Espacio / A: saltar | C / Ctrl / B mando: rodar");
@@ -419,11 +449,25 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         if ((!running || paused) && !ShopOpen)
         {
             Rect panel = new Rect(screenWidth / 2 - 235, screenHeight / 2 - 115, 470, 230);
-            GUI.Box(panel, paused ? "PAUSA" : HasWon ? "ESCAPASTE" : DefeatReason);
+            GUI.Box(panel, paused ? "PAUSA" : CampaignComplete ? "COMPLETASTE LAS 3 AREAS" : HasWon ? "NIVEL COMPLETADO" : DefeatReason);
             GUI.Label(new Rect(panel.x + 24, panel.y + 35, 425, 40), paused ? "Pulsa Esc para continuar."
                 : HasWon ? $"Tiempo: {Elapsed:0.0}s | Score final: {Progress.Score}" : "Prueba otra ruta y usa monedas en la tienda (B).");
-            if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar el mismo laberinto")) Begin(ActiveSeed);
-            if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto aleatorio")) Begin(NewSeed());
+            if (HasWon && !paused)
+            {
+                string next = CampaignComplete ? "Nueva campana desde el area 1"
+                    : CurrentLevelInArea == 2 ? "Continuar a la siguiente area" : "Siguiente nivel";
+                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), next))
+                {
+                    if (CampaignComplete) StartCampaign(NewSeed());
+                    else AdvanceLevel();
+                }
+                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Repetir este nivel")) Begin(ActiveSeed);
+            }
+            else
+            {
+                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar este nivel (misma semilla)")) Begin(ActiveSeed);
+                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto para este nivel")) Begin(NewSeed());
+            }
         }
         GUI.matrix = previous;
     }

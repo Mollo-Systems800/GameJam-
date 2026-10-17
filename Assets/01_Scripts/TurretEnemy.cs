@@ -6,6 +6,9 @@ public sealed class TurretEnemy : MonoBehaviour
     public float fireInterval = 2.2f;
     public float projectileSpeed = 7;
     public int damage = 1;
+    public GameObject baseVisualPrefab;
+    public GameObject barrelVisualPrefab;
+    public Transform barrelRoot;
     MazeBetaGame game;
     Transform barrel;
     float cooldown;
@@ -14,14 +17,25 @@ public sealed class TurretEnemy : MonoBehaviour
     {
         game = owner;
         cooldown = 1.5f;
-        game.CreatePrimitiveVisual(PrimitiveType.Cube, transform, new Vector3(0.65f, 0.8f, 0.65f), Vector3.up * 0.4f, false);
-        barrel = new GameObject("Turret barrel").transform;
-        barrel.SetParent(transform, false);
-        barrel.localPosition = Vector3.up * 0.85f;
-        game.CreatePrimitiveVisual(PrimitiveType.Cube, barrel, new Vector3(0.22f, 0.22f, 0.65f), Vector3.forward * 0.35f, false);
-        var collider = gameObject.AddComponent<BoxCollider>();
-        collider.center = Vector3.up * 0.4f;
-        collider.size = new Vector3(0.65f, 0.8f, 0.65f);
+        if (GetComponentsInChildren<Renderer>().Length == 0)
+            game.CreatePrimitiveVisual(PrimitiveType.Cube, transform, new Vector3(0.65f, 0.8f, 0.65f), Vector3.up * 0.4f, false,
+                baseVisualPrefab ? baseVisualPrefab : game.turretBaseVisualPrefab);
+        barrel = barrelRoot;
+        if (!barrel)
+        {
+            barrel = new GameObject("Turret barrel").transform;
+            barrel.SetParent(transform, false);
+            barrel.localPosition = Vector3.up * 0.85f;
+        }
+        if (barrel.GetComponentsInChildren<Renderer>().Length == 0)
+            game.CreatePrimitiveVisual(PrimitiveType.Cube, barrel, new Vector3(0.22f, 0.22f, 0.65f), Vector3.forward * 0.35f, false,
+                barrelVisualPrefab ? barrelVisualPrefab : game.turretBarrelVisualPrefab);
+        if (!GetComponent<Collider>())
+        {
+            var collider = gameObject.AddComponent<BoxCollider>();
+            collider.center = Vector3.up * 0.4f;
+            collider.size = new Vector3(0.65f, 0.8f, 0.65f);
+        }
     }
 
     void Update()

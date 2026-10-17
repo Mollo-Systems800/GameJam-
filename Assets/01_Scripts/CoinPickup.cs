@@ -3,6 +3,7 @@ using UnityEngine;
 public sealed class CoinPickup : MonoBehaviour
 {
     public int value = 1;
+    public GameObject visualPrefab;
     MazeBetaGame game;
     int cell;
     Vector3 origin;
@@ -12,7 +13,10 @@ public sealed class CoinPickup : MonoBehaviour
         game = owner;
         cell = mazeCell;
         origin = transform.position;
-        game.CreatePrimitiveVisual(PrimitiveType.Cylinder, transform, new Vector3(0.4f, 0.07f, 0.4f), Vector3.zero, true);
+        if (GetComponentsInChildren<Renderer>().Length == 0)
+            game.CreatePrimitiveVisual(PrimitiveType.Cylinder, transform, new Vector3(0.4f, 0.07f, 0.4f), Vector3.zero, true,
+                visualPrefab ? visualPrefab : game.coinVisualPrefab);
+        foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
     }
     void Update()
     {

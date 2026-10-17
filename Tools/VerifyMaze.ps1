@@ -15,6 +15,23 @@ public static class MazeTopologyChecks
         for (int seed = -500; seed < 500; seed++)
         {
             int w = 3 + Math.Abs(seed % 38), h = 3 + Math.Abs(seed % 37);
+            int minimum = (int)Math.Ceiling((w + h - 2) * 0.75);
+            var distant = new MazeGrid(w, h, seed, 1, 0.25f, minimum);
+            Check(distant.Exits.Count == 1 && distant.ExtraConnectionCount > 0, "Single exit with alternative routes required");
+            Check(distant.ExitCell % w + distant.ExitCell / w >= minimum, "Exit too close to spawn");
+            int exterior = 0, farthest = 0;
+            var farDistances = distant.DistancesFrom(0);
+            for (int c = 0; c < distant.Count; c++)
+            {
+                Check(farDistances[c] >= 0, "Distant maze disconnected");
+                for (int d = 0; d < 4; d++)
+                    if (distant.Neighbor(c, d) < 0)
+                    {
+                        if (distant.IsOpen(c, d)) exterior++;
+                        if (c % w + c / w >= minimum) farthest = Math.Max(farthest, farDistances[c]);
+                    }
+            }
+            Check(exterior == 1 && farDistances[distant.ExitCell] == farthest, "Invalid distant exit selection");
             var maze = new MazeGrid(w, h, seed);
             var twin = new MazeGrid(w, h, seed);
             var distances = maze.DistancesFrom(0);
@@ -136,7 +153,7 @@ public static class MazeTopologyChecks
             }
         }
         Check(signatures.Count > 990, "Insufficient variation across seeds");
-        return "PASS: 1000 seeds, dimensions 3..40; four reachable exits, connected alternate routes/cycles, deterministic generation, safe jumping sections and chase paths avoiding walls/blocked cells.";
+        return "PASS: 1000 seeds, dimensions 3..40; single distant exit with alternate routes, farthest eligible boundary, legacy multiple exits, deterministic generation, safe jumping sections and chase paths avoiding walls/blocked cells.";
     }
 }
 '@)

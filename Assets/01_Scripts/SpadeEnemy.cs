@@ -29,20 +29,25 @@ public sealed class SpadeEnemy : MonoBehaviour
         contactRadius = Mathf.Clamp(contactRadius, 0.15f, 0.35f);
         foreach (int pit in game.ObstacleCells) blocked.Add(pit);
         if (game.Encounters != null) foreach (int turret in game.Encounters.Turrets) blocked.Add(turret);
-        var shape = gameObject.AddComponent<SphereCollider>();
-        shape.center = Vector3.up * 0.55f;
-        shape.radius = contactRadius;
-        body = gameObject.AddComponent<Rigidbody>();
+        if (!GetComponent<Collider>())
+        {
+            var shape = gameObject.AddComponent<SphereCollider>();
+            shape.center = Vector3.up * 0.55f;
+            shape.radius = contactRadius;
+        }
+        body = GetComponent<Rigidbody>();
+        if (!body) body = gameObject.AddComponent<Rigidbody>();
         body.isKinematic = true;
         body.useGravity = false;
         body.interpolation = RigidbodyInterpolation.Interpolate;
-        if (!visualRoot && visualPrefab) visualRoot = Instantiate(visualPrefab, transform).transform;
+        bool suppliedVisual = !visualRoot && GetComponentsInChildren<Renderer>().Length > 0;
+        if (!visualRoot && !suppliedVisual && visualPrefab) visualRoot = Instantiate(visualPrefab, transform).transform;
         if (visualRoot)
         {
             NormalizeShovel();
             game.ApplyEnemyMaterialFallback(visualRoot.gameObject);
         }
-        else game.CreatePrimitiveVisual(PrimitiveType.Cube, transform, new Vector3(0.35f, 0.8f, 0.2f), Vector3.up * 0.55f, false);
+        else if (!suppliedVisual) game.CreatePrimitiveVisual(PrimitiveType.Cube, transform, new Vector3(0.35f, 0.8f, 0.2f), Vector3.up * 0.55f, false);
         body.rotation = Quaternion.Euler(0, initialYaw, 0);
     }
 

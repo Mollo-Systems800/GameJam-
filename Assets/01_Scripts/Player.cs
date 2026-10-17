@@ -26,6 +26,7 @@ public class Player : MonoBehaviour
     public float SpeedMultiplier { get; set; } = 1;
     public float CurrentSpeed { get; private set; }
     public float PlanarSpeed { get; private set; }
+    public bool IsSprinting { get; private set; }
     public float VerticalVelocity => verticalSpeed;
     public int Collected { get; private set; }
     public float NextSlowdown => Mathf.Max(0, slowdownEvery - fatigueTime);
@@ -69,7 +70,7 @@ public class Player : MonoBehaviour
 
     void Update()
     {
-        if (!CanMove) { PlanarSpeed = 0; return; }
+        if (!CanMove) { PlanarSpeed = 0; IsSprinting = false; return; }
         fatigueTime += Time.deltaTime;
         if (slowdownEvery > 0 && fatigueTime >= slowdownEvery)
         {
@@ -123,6 +124,7 @@ public class Player : MonoBehaviour
         controller.Move((planarVelocity
                        + Vector3.up * verticalSpeed) * Time.deltaTime);
         PlanarSpeed = Vector3.ProjectOnPlane(transform.position - beforeMove, Vector3.up).magnitude / Mathf.Max(0.0001f, Time.deltaTime);
+        IsSprinting = sprint && input.sqrMagnitude > 0.01f && !IsRolling && PlanarSpeed > 0.1f;
         if (visual && !IsRolling)
         {
             if (view && view.GetComponent<PlayerFollowCamera>())
@@ -159,6 +161,7 @@ public class Player : MonoBehaviour
         groundedGrace = bufferedJump = 0;
         SpeedMultiplier = 1;
         PlanarSpeed = 0;
+        IsSprinting = false;
         roll.Reset();
     }
 }

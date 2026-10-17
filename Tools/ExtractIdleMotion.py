@@ -224,6 +224,8 @@ if __name__ == "__main__":
          project / "Assets/03_Prefabs/Animations/BreathingIdle.json")
     import sys
     if "--all" in sys.argv:
+        from CreateWalkMotion import bake_walk
+        bake_walk(project / "Assets/03_Prefabs/Animations/Walking.json")
         reference = project / "Assets/03_Prefabs/rigged character low poly@Breathing Idle.fbx"
         bake(project / "Assets/03_Prefabs/Standard Run.fbx", project / "Assets/03_Prefabs/Animations/StandardRun.json", "run", reference)
         bake(project / "Assets/03_Prefabs/Jump.fbx", project / "Assets/03_Prefabs/Animations/Jump.json", "jump", reference)

@@ -20,7 +20,7 @@ Abre `Assets/00_Scenes/BetaMaze.unity` en Unity 6000.5.6f1 y pulsa Play. La esce
 
 La rotación completa del cuerpo se separa de las rotaciones limitadas de las articulaciones para conservar la vuelta de 360 grados sin retorcer el codo. La cámara y el controlador permanecen verticales. El apoyo visual se calcula con los límites del modelo para evitar hundir el cuerpo en el suelo. `python Tools/ExtractIdleMotion.py --all` regenera también esta animación. El verificador de Play Mode incluye activación, movimiento contra una pared, finalización y pausa de la voltereta; su ejecución sigue pendiente en el editor.
 
-El jugador comienza en una esquina de un laberinto de 12 por 12 celdas. Hay cuatro salidas exteriores por defecto, todas marcadas SALIDA; cruzar cualquiera termina la partida. `Exit Count` permite configurar entre una y ocho. Se distribuyen en celdas distintas del perímetro, evitando el inicio. El cartel «SE BUSCA EMPLEO» persigue por los pasillos; si alcanza al jugador, causa derrota.
+El jugador comienza en una esquina de un laberinto de 12 por 12 celdas. Cada nivel tiene una sola salida exterior, marcada SALIDA, y conserva cruces, bucles y varios caminos internos. La puerta se escoge entre celdas del perímetro cuya distancia Manhattan al inicio alcanza al menos el 75 % de la diagonal en celdas; entre esas candidatas, BFS elige la de mayor distancia por pasillos. En el mapa predeterminado esto exige al menos 17 pasos de separación física en la cuadrícula, además del recorrido por el laberinto. El boss «SE BUSCA EMPLEO» persigue por los pasillos; si alcanza al jugador, causa derrota.
 
 Hasta diez tramos rectos contienen precipicios con bordes de despegue/aterrizaje y plataformas elevadas. Los huecos no tienen suelo invisible debajo. Espacio permite saltar a la plataforma o cruzar el tramo; caer por debajo de -3 termina la partida. Los tramos se separan entre sí y evitan el inicio, las salidas y sus celdas adyacentes. El boss flotante cruza estos huecos siguiendo su ruta. El número efectivo puede ser menor en laberintos pequeños o con pocos pasillos rectos.
 
@@ -28,9 +28,19 @@ La velocidad inicial del jugador es 4 unidades por segundo y correr aplica un mu
 
 El boss empieza a 2,2 unidades por segundo, espera 5 segundos antes de perseguir y aumenta 0,1 cada 30 segundos desde el comienzo de la partida. La pausa detiene los tiempos de juego. Se distribuyen hasta 12 cajas en celdas diferentes con suelo seguro, evitando inicio, boss, salidas y obstáculos.
 
+## Campaña: tres áreas de tres niveles
+
+Hay nueve laberintos consecutivos, agrupados en Oficinas (1–3), Archivo (4–6) y Patio (7–9). Cada nivel usa una semilla derivada de la semilla de campaña, de modo que sus mapas son distintos y reproducibles. La pantalla indica área y nivel. Escapar habilita «Siguiente nivel» o «Continuar a la siguiente área»; al terminar el noveno ofrece iniciar una campaña nueva. Reintentar conserva el nivel actual y su ambientación. Vida, monedas, mejoras, tiempo y puntuación se reinician al entrar en cada nivel.
+
+En `Beta Game - Configuracion > Areas`, cada elemento permite cambiar nombre, prefabs de paredes, suelos, núcleo y cubierta de pared, plataforma de salida, marcador, precipicio, plataforma de salto, bordes de salto, silla, tienda y rótulos. Los campos vacíos heredan los prefabs globales. Oficinas hereda Wall_3M/Floor_3M, Archivo usa Wall_2M/Floor_2M y Patio usa Wall_Lamp/Floor_1M. Cada área también tiene colores propios para las piezas geométricas provisionales; los materiales de los prefabs se conservan.
+
+`Start Level` (1–9) permite probar cualquier nivel al iniciar Play. `Minimum Exit Distance Ratio` ajusta la separación mínima respecto al inicio (0,75 por defecto, rango 0,5–1). `Alternative Routes` conserva el control de los caminos interiores; no aumenta el número de salidas. La escena beta ya incluye las referencias de los tres kits.
+
+`Tools/VerifyCampaign.ps1` comprueba 1.000 campañas completas y sus semillas. `Tools/VerifyMaze.ps1` incluye 1.000 mapas con salida única distante y rutas alternativas. En Unity, `GameJam > Verificar campana` prueba el cruce real de la salida, los nueve niveles, los prefabs por área, reintentos y fin de campaña; deja el editor pausado y escribe `Logs/campaign-playmode-result.txt`.
+
 ## Configuración
 
-Selecciona `Beta Game - Configuracion` en la escena para cambiar dimensiones, cantidad de salidas, semilla, tamaño de celda, velocidades, intervalos, cantidad de cajas, obstáculos, altura del salto, altura de caída mortal y cámara. Desactiva `Random Seed` para reproducir la semilla del Inspector. La semilla efectiva se muestra en pantalla. Los saltos están dimensionados para las celdas y velocidades predeterminadas; al cambiar escalas extremas hay que ajustar también el salto.
+Selecciona `Beta Game - Configuracion` en la escena para cambiar dimensiones, distancia mínima de la salida, semilla, tamaño de celda, velocidades, intervalos, cantidad de cajas, obstáculos, altura del salto, altura de caída mortal y cámara. Desactiva `Random Seed` para reproducir la semilla del Inspector. La semilla efectiva se muestra en pantalla. Los saltos están dimensionados para las celdas y velocidades predeterminadas; al cambiar escalas extremas hay que ajustar también el salto.
 
 La cámara sigue desde detrás del jugador, a 2,6 unidades, apuntando a una altura de 1,3 y con una inclinación inicial de 18 grados. El campo de visión es de 65 grados y el personaje permanece visible con sus animaciones. El ratón o stick derecho giran la vista y orientan el cuerpo; WASD permite avanzar, retroceder y desplazarse lateralmente. Una comprobación esférica acerca la cámara ante paredes y la devuelve suavemente a su distancia al despejarse el camino. Solo si queda pegada al personaje oculta temporalmente el cuerpo para evitar recortes. El ratón se libera en pausa, tienda, fin de partida o al perder el foco. `Camera Target Height`, `Camera Distance`, `Mouse Sensitivity` y `Camera Field Of View` son configurables.
 
@@ -82,7 +92,7 @@ El cronómetro mide tiempo activo: las pausas y la tienda no cuentan. La puntuac
 
 ### Generación
 
-DFS aleatorio iterativo conecta todas las celdas. Después se abren paredes interiores adicionales para crear cruces, bucles y caminos alternativos. `Alternative Routes` vale 0,25 en la beta: se intenta añadir un número de conexiones igual al 25 % de las conexiones del árbol base, redondeado hacia arriba y limitado por las paredes disponibles. Con cero se conserva el árbol original. BFS elige primero la celda más distante del inicio situada en el perímetro y después distribuye las otras salidas según su distancia al inicio y a las salidas ya elegidas. Cada salida abre un borde exterior. La generación y los obstáculos usan semillas reproducibles. El boss también usa BFS y cambia de pasillo desde los centros de las celdas para evitar recortar esquinas a través de paredes. No necesita hornear un NavMesh.
+DFS aleatorio iterativo conecta todas las celdas. Después se abren paredes interiores adicionales para crear cruces, bucles y caminos alternativos. `Alternative Routes` vale 0,25 en la beta: se intenta añadir un número de conexiones igual al 25 % de las conexiones del árbol base, redondeado hacia arriba y limitado por las paredes disponibles. Con cero se conserva el árbol original. BFS elige la candidata con mayor distancia por pasillos después de filtrar el perímetro por distancia física al spawn. Se abre un único borde exterior. La generación y los obstáculos usan semillas reproducibles. El boss también usa BFS y cambia de pasillo desde los centros de las celdas para evitar recortar esquinas a través de paredes. No necesita hornear un NavMesh.
 
 Esta beta genera el laberinto al comenzar cada partida. Todavía no transforma las paredes durante la persecución, no exige llaves y usa animación procedural y arte provisional. La pantalla de victoria muestra tiempo y puntuación. El balance de dificultad queda abierto para la jam.
 
@@ -110,3 +120,37 @@ La prueba enfocada `GameJam > Verificar voltereta` se ejecutó en la instancia a
 
 
 Los muros de BetaMaze tienen 0,75 m de grosor y 2,6 m de altura por defecto, configurables con `Wall Thickness` y `Wall Height`. El relieve del kit se conserva sobre un núcleo sólido, con tapa superior de ancho completo y tramos que se solapan en las esquinas. Los BoxCollider se ajustan al grosor y la altura; el ancho se limita para conservar pasillos transitables. Las sillas, la tienda y las torretas se separan de la cara interior de los muros; en celdas demasiado estrechas se omite el mobiliario que no cabe.
+
+
+El rig del player incorpora una articulación lumbar `Spine` entre cadera y pecho (11 huesos en total; se conservan los índices de las diez pistas importadas). La respiración avanza durante reposo, carrera y salto, y recupera su ritmo gradualmente al parar. Pecho y brazos tienen pequeños movimientos asimétricos; la cadera cambia suavemente de apoyo. Columna y pecho responden con inercia al arrancar, frenar y girar. `Breathing Strength`, `Secondary Motion` y `Action Blend Time` se configuran en Player.prefab. Los saltos se mezclan durante 0,16 segundos por defecto, con recuperación al aterrizar y tolerancia a un fotograma sin apoyo. Pausa y tienda siguen congelando la animación. `GameJam > Verificar movimiento natural` comprueba movimiento de pecho, brazos y columna en reposo, transición de salto y continuidad después de aterrizar.
+
+Se verificaron en Play Mode la continuidad de pecho, brazos y columna en reposo, la activación del salto, la transición sin saltos grandes de pose y el movimiento posterior al aterrizaje (`Logs/natural-motion-playmode-result.txt`). La prueba de voltereta también pasó de nuevo con el rig de 11 huesos.
+
+
+Caminar y correr ahora son estados distintos. Sin Shift/L3 se usa la marcha procedural; mantener Shift/L3 mientras hay desplazamiento activa `Standard Run` con zancada y elevación de rodillas mayores, balanceo de brazos y `Sprint Motion Strength` de 0,9. El estado se toma de la acción de sprint, por lo que sigue reproduciéndose con fatiga. Soltar Shift, detenerse o chocar con una pared mezcla la pose hacia caminar/reposo. El HUD muestra la velocidad real y `CORRIENDO` cuando está activo. `GameJam > Verificar carrera` comprueba selección del clip, velocidad, amplitud de piernas, salida del estado y carrera con fatiga.
+
+La verificación de carrera pasó en Play Mode: caminar y correr seleccionan poses distintas, Shift activa Standard Run, sube la velocidad y la amplitud de piernas (41,2 grados observados), al soltar vuelve gradualmente al reposo y la fatiga no impide activar el clip. Resultado: `Logs/sprint-playmode-result.txt`.
+
+## Cambiar prefabs desde el Inspector
+
+Con Play detenido, selecciona `Beta Game - Configuracion` en la jerarquía de BetaMaze. Arrastra los prefabs del panel Project a los campos del componente `MazeBetaGame`. Guarda la escena y vuelve a iniciar Play para regenerar los objetos con tus elecciones.
+
+| Grupo | Referencias disponibles |
+| --- | --- |
+| Laberinto | Wall Prefab, Floor Prefab |
+| Piezas generadas del escenario | Wall Core Prefab, Wall Cap Prefab, Exit Floor Prefab, Exit Marker Prefab, Pit Visual Prefab, World Label Prefab, Camera Prefab |
+| Jugador y recursos visuales opcionales | Player Prefab, Boss Prefab, Boss Visual Prefab, Pill Prefab, Pill Visual Prefab |
+| Plataformas y salto | Platform Prefab, Jump Takeoff Prefab, Jump Landing Prefab |
+| Enemigos y monedas | Spade Enemy Prefab, Turret Enemy Prefab, Projectile Prefab, Coin Prefab |
+| Modelos de torretas, monedas y proyectiles | Turret Base Visual Prefab, Turret Barrel Visual Prefab, Coin Visual Prefab, Projectile Visual Prefab |
+| Ambientación y tienda | Shopkeeper Prefab, Chair Prefab |
+
+Los campos visuales vacíos mantienen las figuras provisionales; los suelos de salida y bordes de salto vacíos usan Floor Prefab. Los prefabs completos de boss, pastillas, pala, torreta, moneda y proyectil conservan sus mallas; la lógica correspondiente se añade si falta. Player Prefab necesita el componente Player. World Label Prefab acepta un prefab con TextMesh y conserva su fuente, color y estilo. Camera Prefab se usa si la escena no tiene MainCamera. En TurretEnemy se puede asignar Barrel Root para que gire el cañón ya incluido en el prefab; en SpadeEnemy, Visual Root permite definir qué parte del modelo se normaliza. Los materiales de los prefabs personalizados se conservan, incluidas las plataformas. El comando de crear/abrir beta solo rellena las referencias vacías y respeta las elecciones ya asignadas.
+
+Los contenedores del generador y los huesos internos del rig son estructuras de funcionamiento; los campos anteriores controlan los objetos visuales y de juego.
+
+## Caminata
+
+Walking.json es un ciclo propio de esta beta, creado con Tools/CreateWalkMotion.py: 33 fotogramas, 11 pistas y cierre continuo. No procede de un FBX externo. Incluye pasos alternados, flexión de rodillas, balanceo de brazos y rotación de cadera/columna/pecho. Se adapta a la dirección real para avanzar, retroceder y desplazarse lateralmente. Walk Motion, Walk Motion Strength y Walk Cycle Distance se ajustan en Player.prefab. Caminata y carrera comparten la fase de las pisadas para suavizar su transición; Shift/L3 sigue seleccionando Standard Run.
+
+Verificado en Play Mode: Walking.json se carga y mueve las piernas; la transición a Standard Run y la carrera con fatiga pasan. La sustitución de prefabs del boss, pastillas, palas, torretas, monedas, proyectiles y piezas del escenario conserva los modelos sin duplicar primitivas. Resultado en `Logs/sprint-playmode-result.txt`.

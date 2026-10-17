@@ -4,6 +4,7 @@ public sealed class EnemyProjectile : MonoBehaviour
 {
     public float radius = 0.12f;
     public float lifetime = 5;
+    public GameObject visualPrefab;
     MazeBetaGame game;
     Vector3 velocity;
     Transform source;
@@ -15,7 +16,10 @@ public sealed class EnemyProjectile : MonoBehaviour
         velocity = direction.normalized * Mathf.Max(0.1f, speed);
         source = shooter;
         damage = hitDamage;
-        game.CreatePrimitiveVisual(PrimitiveType.Sphere, transform, Vector3.one * radius * 2, Vector3.zero, false);
+        if (GetComponentsInChildren<Renderer>().Length == 0)
+            game.CreatePrimitiveVisual(PrimitiveType.Sphere, transform, Vector3.one * radius * 2, Vector3.zero, false,
+                visualPrefab ? visualPrefab : game.projectileVisualPrefab);
+        foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
     }
 
     void Update()
@@ -25,6 +29,7 @@ public sealed class EnemyProjectile : MonoBehaviour
         if (lifetime <= 0) { Destroy(gameObject); return; }
         foreach (var collider in Physics.OverlapSphere(transform.position, radius, ~0, QueryTriggerInteraction.Ignore))
         {
+            if (collider.transform.IsChildOf(transform)) continue;
             if (source && collider.transform.IsChildOf(source)) continue;
             if (collider.GetComponentInParent<Player>() == game.Player) game.HitPlayer(damage, "TE ALCANZO UNA TORRETA");
             Destroy(gameObject);
@@ -37,6 +42,7 @@ public sealed class EnemyProjectile : MonoBehaviour
         RaycastHit? first = null;
         foreach (var hit in hits)
         {
+            if (hit.collider.transform.IsChildOf(transform)) continue;
             if (source && hit.collider.transform.IsChildOf(source)) continue;
             if (!first.HasValue || hit.distance < first.Value.distance) first = hit;
         }

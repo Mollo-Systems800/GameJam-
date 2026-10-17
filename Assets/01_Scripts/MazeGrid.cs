@@ -22,7 +22,7 @@ public sealed class MazeGrid
     public static readonly int[] DY = { 1, 0, -1, 0 };
     readonly int[] passages;
 
-    public MazeGrid(int width, int height, int seed, int exitCount = 1, float alternativeRoutes = 0)
+    public MazeGrid(int width, int height, int seed, int exitCount = 1, float alternativeRoutes = 0, int minimumExitDistance = 0)
     {
         Width = Math.Max(3, width);
         Height = Math.Max(3, height);
@@ -78,9 +78,12 @@ public sealed class MazeGrid
         // Spread exits across distinct boundary cells after creating alternative routes.
         int[] distances = DistancesFrom(0);
         var candidates = new List<Exit>();
+        minimumExitDistance = Math.Max(0, Math.Min(Width + Height - 2, minimumExitDistance));
         for (int cell = 0; cell < passages.Length; cell++)
         {
-            if (cell == 0) continue;
+            // Physical distance as well as route length: a long detour must not
+            // put the door just beside the spawn on the other side of a wall.
+            if (cell == 0 || cell % Width + cell / Width < minimumExitDistance) continue;
             for (int d = 0; d < 4; d++)
                 if (Neighbor(cell, d) < 0)
                 {
