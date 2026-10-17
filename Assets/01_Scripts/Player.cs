@@ -13,6 +13,12 @@ public class Player : MonoBehaviour
     [Min(0.1f)] public float jumpHeight = 1.1f;
     public float coyoteTime = 0.12f;
     public float jumpBuffer = 0.12f;
+    [Header("Voltereta")]
+    [Min(0.1f)] public float rollDuration = 1.166667f;
+    [Min(0)] public float rollSpeed = 6;
+    [Min(0)] public float rollCooldown = 0.6f;
+    public bool IsRolling => roll.Active;
+    public float RollProgress => roll.Progress;
     public bool IsGrounded => controller && controller.isGrounded;
     public Transform visual;
     public Camera view;
@@ -28,6 +34,8 @@ public class Player : MonoBehaviour
     float fatigueTime;
     float groundedGrace;
     float bufferedJump;
+    readonly PlayerRollState roll = new PlayerRollState();
+    Vector3 rollDirection;
 
     void Awake()
     {
@@ -87,10 +95,22 @@ public class Player : MonoBehaviour
                    || (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
         bool jumpPressed = (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
                         || (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
+        bool rollPressed = (keyboard != null && keyboard.leftCtrlKey.wasPressedThisFrame)
+                        || (keyboard != null && (keyboard.rightCtrlKey.wasPressedThisFrame || keyboard.cKey.wasPressedThisFrame))
+                        || (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame);
+        if (rollPressed) roll.Request();
+        bool rollSupported = verticalSpeed <= 0 && (controller.isGrounded || ProbeRollSupport());
+        if (roll.Step(Time.deltaTime, rollSupported, rollDuration, rollCooldown))
+        {
+            rollDirection = direction.sqrMagnitude > 0.01f ? direction.normalized : forward;
+            bufferedJump = 0;
+            if (visual) visual.rotation = Quaternion.LookRotation(rollDirection);
+        }
         bufferedJump = jumpPressed ? jumpBuffer : bufferedJump - Time.deltaTime;
+        if (IsRolling) bufferedJump = 0;
         groundedGrace = controller.isGrounded ? coyoteTime : groundedGrace - Time.deltaTime;
         if (controller.isGrounded && verticalSpeed < 0) verticalSpeed = -2;
-        if (bufferedJump > 0 && groundedGrace > 0 && verticalSpeed <= 0)
+        if (!IsRolling && bufferedJump > 0 && groundedGrace > 0 && verticalSpeed <= 0)
         {
             verticalSpeed = Mathf.Sqrt(2 * Mathf.Abs(Physics.gravity.y) * jumpHeight);
             bufferedJump = 0;
@@ -98,11 +118,29 @@ public class Player : MonoBehaviour
         }
         verticalSpeed += Physics.gravity.y * Time.deltaTime;
         Vector3 beforeMove = transform.position;
-        controller.Move((direction * CurrentSpeed * SpeedMultiplier * (sprint ? sprintMultiplier : 1)
+        Vector3 planarVelocity = IsRolling ? rollDirection * rollSpeed
+            : direction * CurrentSpeed * SpeedMultiplier * (sprint ? sprintMultiplier : 1);
+        controller.Move((planarVelocity
                        + Vector3.up * verticalSpeed) * Time.deltaTime);
         PlanarSpeed = Vector3.ProjectOnPlane(transform.position - beforeMove, Vector3.up).magnitude / Mathf.Max(0.0001f, Time.deltaTime);
-        if (visual && direction.sqrMagnitude > 0.01f)
-            visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.LookRotation(direction), 14 * Time.deltaTime);
+        if (visual && !IsRolling)
+        {
+            if (view && view.GetComponent<PlayerFollowCamera>())
+                visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.Euler(0, view.transform.eulerAngles.y, 0), 14 * Time.deltaTime);
+            else if (direction.sqrMagnitude > 0.01f)
+                visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.LookRotation(direction), 14 * Time.deltaTime);
+        }
+    }
+
+    bool ProbeRollSupport()
+    {
+        float radius = controller.radius * 0.85f;
+        Vector3 feet = transform.TransformPoint(controller.center) - Vector3.up * (controller.height * 0.5f);
+        Vector3 origin = feet + Vector3.up * (radius + 0.05f);
+        foreach (var hit in Physics.SphereCastAll(origin, radius, Vector3.down, 0.14f, ~0, QueryTriggerInteraction.Ignore))
+            if (!hit.collider.transform.IsChildOf(transform)
+                && hit.normal.y >= Mathf.Cos(controller.slopeLimit * Mathf.Deg2Rad)) return true;
+        return false;
     }
 
     public void CollectPills()
@@ -121,5 +159,6 @@ public class Player : MonoBehaviour
         groundedGrace = bufferedJump = 0;
         SpeedMultiplier = 1;
         PlanarSpeed = 0;
+        roll.Reset();
     }
 }

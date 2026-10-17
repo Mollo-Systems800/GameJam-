@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 
-// Pure grid topology, independent of rendering. DFS builds a connected spanning tree.
+// DFS builds connectivity, then extra internal passages provide alternate routes.
 public sealed class MazeGrid
 {
     public readonly int Width;
     public readonly int Height;
     public readonly int Seed;
+    public int ExtraConnectionCount { get; private set; }
     public readonly struct Exit
     {
         public readonly int Cell;
@@ -21,7 +22,7 @@ public sealed class MazeGrid
     public static readonly int[] DY = { 1, 0, -1, 0 };
     readonly int[] passages;
 
-    public MazeGrid(int width, int height, int seed, int exitCount = 1)
+    public MazeGrid(int width, int height, int seed, int exitCount = 1, float alternativeRoutes = 0)
     {
         Width = Math.Max(3, width);
         Height = Math.Max(3, height);
@@ -50,7 +51,31 @@ public sealed class MazeGrid
             visited[neighbor] = true;
             stack.Push(neighbor);
         }
-        // Spread exits across distinct boundary cells; keep the first one farthest from spawn.
+        if (!float.IsNaN(alternativeRoutes) && alternativeRoutes > 0)
+        {
+            var walls = new List<int>();
+            for (int cell = 1; cell < Count; cell++)
+                for (int d = 0; d < 4; d++)
+                {
+                    int next = Neighbor(cell, d);
+                    if (next > cell && !IsOpen(cell, d)) walls.Add(cell * 4 + d);
+                }
+            for (int i = walls.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                int wall = walls[i]; walls[i] = walls[j]; walls[j] = wall;
+            }
+            int openings = Math.Min(walls.Count, (int)Math.Ceiling((Count - 1) * Math.Min(1, alternativeRoutes)));
+            for (int i = 0; i < openings; i++)
+            {
+                int cell = walls[i] / 4, direction = walls[i] % 4;
+                int next = Neighbor(cell, direction);
+                passages[cell] |= 1 << direction;
+                passages[next] |= 1 << ((direction + 2) % 4);
+                ExtraConnectionCount++;
+            }
+        }
+        // Spread exits across distinct boundary cells after creating alternative routes.
         int[] distances = DistancesFrom(0);
         var candidates = new List<Exit>();
         for (int cell = 0; cell < passages.Length; cell++)
@@ -118,7 +143,7 @@ public sealed class MazeGrid
         return distances;
     }
 
-    public List<int> FindPath(int start, int goal)
+    public List<int> FindPath(int start, int goal, ISet<int> blocked = null, bool allowPartial = false)
     {
         var result = new List<int>();
         if (start < 0 || goal < 0 || start >= Count || goal >= Count) return result;
@@ -127,18 +152,29 @@ public sealed class MazeGrid
         var queue = new Queue<int>();
         queue.Enqueue(start);
         parent[start] = start;
+        int closest = start;
+        int closestDistance = Math.Abs(start % Width - goal % Width) + Math.Abs(start / Width - goal / Width);
         while (queue.Count > 0 && parent[goal] < 0)
         {
             int cell = queue.Dequeue();
             for (int d = 0; d < 4; d++)
             {
                 int next = Neighbor(cell, d);
-                if (next < 0 || !IsOpen(cell, d) || parent[next] >= 0) continue;
+                if (next < 0 || !IsOpen(cell, d) || parent[next] >= 0 || (blocked != null && blocked.Contains(next))) continue;
                 parent[next] = cell;
                 queue.Enqueue(next);
+                if (allowPartial)
+                {
+                    int distance = Math.Abs(next % Width - goal % Width) + Math.Abs(next / Width - goal / Width);
+                    if (distance < closestDistance) { closest = next; closestDistance = distance; }
+                }
             }
         }
-        if (parent[goal] < 0) return result;
+        if (parent[goal] < 0)
+        {
+            if (!allowPartial) return result;
+            goal = closest;
+        }
         for (int cell = goal; cell != start; cell = parent[cell]) result.Add(cell);
         result.Reverse();
         return result;

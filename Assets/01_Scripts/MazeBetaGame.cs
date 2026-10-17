@@ -9,7 +9,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     [Range(3, 40)] public int width = 12;
     [Range(3, 40)] public int height = 12;
     [Min(2)] public float cellSize = 3f;
-    [Range(1, 8)] public int exitCount = 3;
+    [Min(0.35f)] public float wallThickness = 0.75f;
+    [Min(2)] public float wallHeight = 2.6f;
+    public float WallThickness => Mathf.Clamp(wallThickness, 0.35f, Mathf.Max(0.35f, cellSize - 0.9f));
+    [Range(1, 8)] public int exitCount = 4;
+    [Range(0, 0.6f)] public float alternativeRoutes = 0.25f;
     public bool randomSeed = true;
     public int seed = 12345;
     public GameObject wallPrefab;
@@ -33,7 +37,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     public float bossGracePeriod = 5f;
     [Header("Partida")]
     [Range(0, 100)] public int pillCount = 12;
-    public Vector3 cameraOffset = new Vector3(0, 17, -7);
+    [Header("Camara detras del jugador")]
+    public float cameraTargetHeight = 1.3f;
+    public float cameraDistance = 2.6f;
+    public float mouseSensitivity = 0.10f;
+    public float cameraFieldOfView = 65;
     public MazeGrid Grid { get; private set; }
     public Player Player { get; private set; }
     public MazeBoss Boss { get; private set; }
@@ -46,6 +54,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     Transform generated;
     Camera view;
+    PlayerFollowCamera followCamera;
     List<int> obstacleCells = new List<int>();
     bool running;
     bool paused;
@@ -62,9 +71,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             cameraObject.tag = "MainCamera";
             view = cameraObject.GetComponent<Camera>();
         }
-        view.nearClipPlane = 0.1f;
+        view.nearClipPlane = 0.04f;
         view.farClipPlane = 150;
-        view.fieldOfView = 55;
+        view.fieldOfView = cameraFieldOfView;
+        followCamera = view.GetComponent<PlayerFollowCamera>();
+        if (!followCamera) followCamera = view.gameObject.AddComponent<PlayerFollowCamera>();
         wallMaterial = MakeMaterial(new Color(0.25f, 0.3f, 0.35f));
         floorMaterial = MakeMaterial(new Color(0.35f, 0.38f, 0.4f));
         paperMaterial = MakeMaterial(new Color(1f, 0.86f, 0.7f));
@@ -86,7 +97,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         }
         labels.Clear();
         ActiveSeed = newSeed;
-        Grid = new MazeGrid(Mathf.Clamp(width, 3, 40), Mathf.Clamp(height, 3, 40), newSeed, exitCount);
+        Grid = new MazeGrid(Mathf.Clamp(width, 3, 40), Mathf.Clamp(height, 3, 40), newSeed, exitCount, alternativeRoutes);
         obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount);
         generated = new GameObject("Beta Generated Maze").transform;
         generated.SetParent(transform, false);
@@ -110,7 +121,8 @@ public sealed partial class MazeBetaGame : MonoBehaviour
                 if (neighbor >= 0 && neighbor < cell) continue;
                 Vector3 direction = Direction(d);
                 var wall = Module(wallPrefab, "Wall " + cell + " " + d,
-                    position + direction * cellSize * 0.5f, new Vector3(cellSize + 0.12f, 2.4f, 0.24f), true);
+                    position + direction * cellSize * 0.5f,
+                    new Vector3(cellSize + WallThickness, Mathf.Max(2, wallHeight), WallThickness), true);
                 wall.rotation = Quaternion.Euler(0, d % 2 == 0 ? 0 : 90, 0);
             }
         }
@@ -206,9 +218,13 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             pickup.AddComponent<PillPickup>().Initialize(this, cell);
         }
         SpawnEncounters(bossCell);
+        SpawnSuppliedProps(bossCell);
         Physics.SyncTransforms();
-        view.transform.position = Player.transform.position + cameraOffset;
-        view.transform.LookAt(Player.transform.position + Vector3.up * 0.6f);
+        followCamera.targetHeight = cameraTargetHeight;
+        followCamera.followDistance = cameraDistance;
+        followCamera.mouseSensitivity = mouseSensitivity;
+        followCamera.fieldOfView = cameraFieldOfView;
+        followCamera.Initialize(this, Player);
     }
 
     public Vector3 CellPosition(int cell) => new Vector3(cell % Grid.Width * cellSize, 0, cell / Grid.Width * cellSize);
@@ -254,11 +270,6 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     void LateUpdate()
     {
         if (!Player || !view) return;
-        Vector3 focus = Player.transform.position;
-        focus.y = Mathf.Max(0, focus.y);
-        view.transform.position = Vector3.Lerp(view.transform.position, focus + cameraOffset,
-            1 - Mathf.Exp(-8 * Time.deltaTime));
-        view.transform.LookAt(focus + Vector3.up * 0.6f);
         foreach (var label in labels)
             if (label) label.transform.rotation = view.transform.rotation;
     }
@@ -284,6 +295,20 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             var cube = Cube("Visual", root, wall ? wallMaterial : floorMaterial);
             cube.transform.localScale = size;
             cube.transform.localPosition = Vector3.up * (wall ? size.y * 0.5f : -size.y * 0.5f);
+        }
+        if (wall)
+        {
+            // The kit's relief is thin between its horizontal strips. Give it a
+            // closed solid body and a full-width top so thickness reads from every side.
+            if (prefab)
+            {
+                var core = Cube("Wall solid core", root, wallMaterial);
+                core.transform.localPosition = Vector3.up * size.y * 0.5f;
+                core.transform.localScale = new Vector3(size.x, size.y, size.z * 0.8f);
+            }
+            var cap = Cube("Wall top cap", root, wallMaterial);
+            cap.transform.localPosition = Vector3.up * (size.y - 0.07f);
+            cap.transform.localScale = new Vector3(size.x, 0.14f, size.z);
         }
         // Stable collision independent of the imported mesh pivot and zero-thickness kit floors.
         var collider = root.gameObject.AddComponent<BoxCollider>();
@@ -372,6 +397,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     void OnDestroy()
     {
+        if (followCamera) followCamera.enabled = false;
         foreach (var material in materials) if (material) Destroy(material);
     }
 
@@ -387,7 +413,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         GUI.Label(new Rect(25, 66, 440, 25), $"Tu velocidad: {Player.CurrentSpeed:0.00}   Boss: {Boss.CurrentSpeed:0.00}");
         GUI.Label(new Rect(25, 92, 440, 25), $"Boss acelera en {Boss.NextIncrease:0}s | Fatiga en {Player.NextSlowdown:0}s");
         GUI.Label(new Rect(25, 118, 540, 25), "WASD / flechas / stick: mover | Shift / L3: correr | Esc: pausa");
-        GUI.Label(new Rect(25, 144, 540, 25), "Espacio / boton inferior del mando: saltar. Evita los precipicios.");
+        GUI.Label(new Rect(25, 144, 540, 25), "Raton / stick: mirar | Espacio / A: saltar | C / Ctrl / B mando: rodar");
         GUI.Label(new Rect(25, 170, 540, 25), $"Salidas: {Grid.Exits.Count} | Tramos de salto: {obstacleCells.Count} | Pastillas: restauran velocidad");
         DrawRunHUD(screenWidth, screenHeight);
         if ((!running || paused) && !ShopOpen)

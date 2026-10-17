@@ -1,0 +1,15 @@
+newmtl Anderson_0
+Kd 1 1 1
+map_Kd Textures/Anderson_0.png
+
+newmtl Anderson_1
+Kd 1 1 1
+map_Kd Textures/Anderson_1.png
+
+newmtl Anderson_2
+Kd 1 1 1
+map_Kd Textures/Anderson_1.png
+
+newmtl Anderson_3
+Kd 1 1 1
+map_Kd Textures/Anderson_2.png

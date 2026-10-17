@@ -81,6 +81,9 @@ MonoBehaviour:
   jumpHeight: 1.1
   coyoteTime: 0.12
   jumpBuffer: 0.12
+  rollDuration: 1.166667
+  rollSpeed: 6
+  rollCooldown: 0.6
   visual: {fileID: 400002}
   view: {fileID: 0}
 --- !u!1 &100002
@@ -150,3 +153,13 @@ MonoBehaviour:
   legSwing: 28
   armSwing: 24
   blendSpeed: 12
+  idleMotion: {fileID: 4900000, guid: d4d031ac91f84425b8bcb7ea1001db69, type: 3}
+  idleStrength: 1
+  motionStrength: 0.65
+  torsoTwist: 9
+  runningLean: 3
+  hipSway: 0.004
+  runMotion: {fileID: 4900000, guid: b4a472199e9f440881f0577c31127ee7, type: 3}
+  jumpMotion: {fileID: 4900000, guid: 86c529fb84904df5bfc8b0051502780c, type: 3}
+  rollMotion: {fileID: 4900000, guid: a32b7a630efd4785b0a04be7f05b3ca2, type: 3}
+  runReferenceSpeed: 4

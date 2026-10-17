@@ -45,7 +45,7 @@ public static class RunFeatureChecks
         Check(exact.TryBuy(PowerUpKind.Speed) && exact.Coins == 0 && !exact.TryBuy(PowerUpKind.Speed), "Exact balance/overspending");
         for (int seed = -500; seed < 500; seed++)
         {
-            var grid = new MazeGrid(3 + Math.Abs(seed % 18), 3 + Math.Abs(seed % 17), seed, 3);
+            var grid = new MazeGrid(3 + Math.Abs(seed % 18), 3 + Math.Abs(seed % 17), seed, 4, 0.25f);
             var pits = MazeObstacles.Select(grid, seed, 10);
             int boss = 1;
             for (int c = 1; c < grid.Count; c++)

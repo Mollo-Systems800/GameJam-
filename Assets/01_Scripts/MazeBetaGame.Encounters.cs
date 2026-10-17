@@ -8,6 +8,10 @@ public sealed partial class MazeBetaGame
     public GameObject turretEnemyPrefab;
     public GameObject projectilePrefab;
     public GameObject coinPrefab;
+    [Header("Ambientacion y tienda")]
+    public GameObject shopkeeperPrefab;
+    public GameObject chairPrefab;
+    [Range(0, 30)] public int chairCount = 10;
     [Range(0, 20)] public int spadeCount = 6;
     [Range(0, 20)] public int turretCount = 4;
     [Range(0, 100)] public int coinCount = 36;
@@ -18,12 +22,14 @@ public sealed partial class MazeBetaGame
     public bool ShopOpen { get; private set; }
     public MazeEncounters Encounters { get; private set; }
     bool pausedBeforeShop;
-    Material enemyMaterial, coinMaterial;
+    Material enemyMaterial, coinMaterial, spadeMaterial;
 
     void InitializeRunFeatures()
     {
         enemyMaterial = MakeMaterial(new Color(0.85f, 0.15f, 0.1f));
         coinMaterial = MakeMaterial(new Color(1f, 0.8f, 0.08f));
+        spadeMaterial = MakeMaterial(new Color(0.65f, 0.69f, 0.72f));
+        if (spadeMaterial.HasProperty("_Metallic")) spadeMaterial.SetFloat("_Metallic", 0.45f);
         BestTime = PlayerPrefs.GetFloat("MazeBeta.BestTime", -1);
         BestScore = PlayerPrefs.GetInt("MazeBeta.BestScore", 0);
     }
@@ -43,7 +49,7 @@ public sealed partial class MazeBetaGame
         {
             Vector3 offset = Vector3.zero;
             for (int d = 0; d < 4; d++)
-                if (!Grid.IsOpen(cell, d)) { offset = Direction(d) * (cellSize * 0.5f - 0.55f); break; }
+                if (!Grid.IsOpen(cell, d)) { offset = Direction(d) * Mathf.Max(0, cellSize * 0.5f - WallThickness * 0.5f - 0.4f); break; }
             var item = Spawn(turretEnemyPrefab, "Turret " + cell, CellPosition(cell) + offset);
             var turret = item.GetComponent<TurretEnemy>();
             if (!turret) turret = item.AddComponent<TurretEnemy>();
@@ -65,6 +71,74 @@ public sealed partial class MazeBetaGame
         item.transform.SetParent(generated, true);
         item.transform.position = position;
         return item;
+    }
+
+    void SpawnSuppliedProps(int bossCell)
+    {
+        // Furnish only closed sides of safe cells, leaving centre-to-centre routes clear.
+        float npcInset = WallThickness * 0.5f + 0.35f;
+        if (shopkeeperPrefab && cellSize * 0.5f - npcInset > 0.56f)
+        {
+            for (int d = 0; d < 4; d++)
+            {
+                if (Grid.IsOpen(0, d)) continue;
+                var npc = SpawnWallProp(shopkeeperPrefab, "Anderson - Tienda", 0, d,
+                    new Vector3(1.6f, 1.65f, 0.6f), npcInset);
+                var shape = npc.AddComponent<CapsuleCollider>();
+                shape.height = 1.65f;
+                shape.radius = 0.22f;
+                shape.center = Vector3.up * 0.825f;
+                Label("TIENDA [B]", npc.transform.position + Vector3.up * 1.95f,
+                    npc.transform, new Color(1, 0.85f, 0.25f), 0.055f);
+                break;
+            }
+        }
+        if (!chairPrefab || chairCount <= 0) return;
+        var reserved = new System.Collections.Generic.HashSet<int>(obstacleCells) { 0, bossCell };
+        foreach (var exit in Grid.Exits) reserved.Add(exit.Cell);
+        foreach (int cell in Encounters.Spades) reserved.Add(cell);
+        foreach (int cell in Encounters.Turrets) reserved.Add(cell);
+        foreach (int cell in Encounters.Coins) reserved.Add(cell);
+        var cells = new System.Collections.Generic.List<int>();
+        for (int c = 1; c < Grid.Count; c++)
+            if (!reserved.Contains(c)) cells.Add(c);
+        var random = new System.Random(ActiveSeed ^ 54709);
+        for (int i = cells.Count - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            int temp = cells[i]; cells[i] = cells[j]; cells[j] = temp;
+        }
+        int placed = 0;
+        foreach (int cell in cells)
+        {
+            if (placed >= chairCount) break;
+            int start = random.Next(4);
+            for (int i = 0; i < 4; i++)
+            {
+                int d = (start + i) % 4;
+                if (Grid.IsOpen(cell, d)) continue;
+                // Keep a clear central lane even at the minimum supported cell size.
+                float width = Mathf.Min(0.8f, cellSize * 0.5f - WallThickness * 0.5f - 0.5f);
+                if (width < 0.3f) break;
+                var chair = SpawnWallProp(chairPrefab, "Inter Chair " + cell, cell, d,
+                    new Vector3(width, 1, width), WallThickness * 0.5f + width * 0.5f + 0.08f);
+                var shape = chair.AddComponent<BoxCollider>();
+                shape.size = new Vector3(width, 0.8f, width);
+                shape.center = Vector3.up * 0.4f;
+                placed++;
+                break;
+            }
+        }
+    }
+
+    GameObject SpawnWallProp(GameObject prefab, string objectName, int cell, int side, Vector3 size, float wallInset)
+    {
+        var root = new GameObject(objectName);
+        root.transform.SetParent(generated, false);
+        root.transform.position = CellPosition(cell) + Direction(side) * (cellSize * 0.5f - wallInset);
+        FitVisual(prefab, root.transform, size, true);
+        root.transform.rotation = Quaternion.LookRotation(-Direction(side));
+        return root;
     }
 
     public void FireProjectile(Vector3 origin, Vector3 direction, float speed, int damage, Transform shooter)
@@ -94,7 +168,7 @@ public sealed partial class MazeBetaGame
         {
             var assigned = renderer.sharedMaterials;
             for (int i = 0; i < assigned.Length; i++)
-                if (!assigned[i] || !assigned[i].mainTexture) assigned[i] = enemyMaterial;
+                if (!assigned[i] || !assigned[i].mainTexture) assigned[i] = spadeMaterial;
             renderer.sharedMaterials = assigned;
         }
     }

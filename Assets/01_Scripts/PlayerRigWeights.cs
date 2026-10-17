@@ -37,9 +37,40 @@ public static class PlayerRigWeights
                 left ? PlayerRigBone.LeftForearm : PlayerRigBone.RightForearm, hand);
         }
         float arm = Smooth(0.10f, 0.19f, Math.Abs(x)) * (1 - Smooth(0.80f, 0.89f, y));
-        float elbow = 1 - Smooth(0.54f, 0.68f, y);
+        float elbow = ElbowWeight(y);
         return new Influence(left ? PlayerRigBone.LeftArm : PlayerRigBone.RightArm,
             left ? PlayerRigBone.LeftForearm : PlayerRigBone.RightForearm, PlayerRigBone.Chest,
             arm * (1 - elbow), arm * elbow);
+    }
+
+    // Keep the blend close to the elbow pivot instead of bending the entire sleeve.
+    static float ElbowWeight(float y) => 1 - Smooth(0.57f, 0.63f, y);
+
+    public static Influence SampleMesh(string meshName, float x, float y)
+    {
+        bool left = x < 0;
+        // Clothing below the waist must not inherit knee weights.
+        if (meshName == "Cube.007")
+        {
+            // Match the exposed arm at the sleeve seam; different masks pull it apart.
+            float arm = Smooth(0.10f, 0.19f, Math.Abs(x)) * Smooth(0.48f, 0.56f, y)
+                * (1 - Smooth(0.80f, 0.89f, y));
+            float elbow = ElbowWeight(y);
+            float chest = Smooth(0.50f, 0.74f, y);
+            return new Influence(left ? PlayerRigBone.LeftArm : PlayerRigBone.RightArm,
+                left ? PlayerRigBone.LeftForearm : PlayerRigBone.RightForearm, PlayerRigBone.Hips,
+                arm * (1 - elbow), arm * elbow, PlayerRigBone.Chest, (1 - arm) * chest);
+        }
+        if (meshName == "Cube.005" || meshName == "Cube.010" || (meshName == "Cube.001" && y < 0.3f))
+        {
+            float leg = 1 - Smooth(0.44f, 0.56f, y);
+            float knee = 1 - Smooth(0.23f, 0.32f, y);
+            return new Influence(left ? PlayerRigBone.LeftThigh : PlayerRigBone.RightThigh,
+                left ? PlayerRigBone.LeftShin : PlayerRigBone.RightShin, PlayerRigBone.Hips,
+                leg * (1 - knee), leg * knee);
+        }
+        if (meshName == "Cube.001") return Sample(x, y);
+        // Hair, eyes, eyebrows and tie remain rigid instead of stretching independently.
+        return new Influence(PlayerRigBone.Chest, PlayerRigBone.Hips, PlayerRigBone.Chest, 1, 0);
     }
 }

@@ -92,9 +92,51 @@ public static class MazeTopologyChecks
                 }
                 Check(open == 2 && multi.IsOpen(c, 0) == multi.IsOpen(c, 2), "Obstacle is not in straight corridor");
             }
+            var braided = new MazeGrid(w, h, seed, 4, 0.25f);
+            var braidTwin = new MazeGrid(w, h, seed, 4, 0.25f);
+            int braidEdges = 0, braidExits = 0;
+            foreach (int distance in braided.DistancesFrom(0)) Check(distance >= 0, "Braided maze disconnected");
+            for (int c = 0; c < braided.Count; c++)
+                for (int d = 0; d < 4; d++)
+                {
+                    Check(braided.IsOpen(c,d) == braidTwin.IsOpen(c,d), "Braiding is not deterministic");
+                    if (!braided.IsOpen(c,d)) continue;
+                    int next = braided.Neighbor(c,d);
+                    if (next < 0) braidExits++;
+                    else { braidEdges++; Check(braided.IsOpen(next,(d+2)%4), "Asymmetric braided passage"); }
+                }
+            Check(braidExits == 4 && braided.Exits.Count == 4, "Braiding changed exit count");
+            Check(braided.ExtraConnectionCount > 0 && braidEdges/2 == braided.Count-1+braided.ExtraConnectionCount,
+                "No cycles/alternative routes generated");
+            foreach (var exit in braided.Exits)
+                Check(braided.FindPath(0,exit.Cell).Count > 0, "Braided exit unreachable");
+            var blocked = new HashSet<int>(MazeObstacles.Select(braided,seed,10));
+            int goal = braided.ExitCell;
+            blocked.Add(goal);
+            Check(braided.FindPath(0,goal,blocked).Count == 0, "Chase entered blocked goal");
+            var chase = braided.FindPath(0,goal,blocked,true);
+            int last = 0;
+            foreach (int next in chase)
+            {
+                Check(!blocked.Contains(next), "Chase entered pit or turret cell");
+                bool connected = false;
+                for (int d = 0; d < 4; d++) connected |= braided.Neighbor(last,d) == next && braided.IsOpen(last,d);
+                Check(connected, "Chase path crosses a wall");
+                last = next;
+            }
+            // Moving targets must always yield adjacent valid steps, including a blocked goal.
+            foreach (int target in new[] { goal, braided.Count/2, 0 })
+            {
+                var update = braided.FindPath(last,target,blocked,true);
+                if (update.Count == 0) continue;
+                Check(!blocked.Contains(update[0]), "Repath selected blocked waypoint");
+                bool adjacent = false;
+                for (int d = 0; d < 4; d++) adjacent |= braided.Neighbor(last,d) == update[0] && braided.IsOpen(last,d);
+                Check(adjacent, "Repath cuts a corner");
+            }
         }
         Check(signatures.Count > 990, "Insufficient variation across seeds");
-        return "PASS: 1000 seeds, dimensions 3..40; single and multiple exits (1..5), connectivity, BFS, reproducibility, variation, safe deterministic non-adjacent jumping sections.";
+        return "PASS: 1000 seeds, dimensions 3..40; four reachable exits, connected alternate routes/cycles, deterministic generation, safe jumping sections and chase paths avoiding walls/blocked cells.";
     }
 }
 '@)

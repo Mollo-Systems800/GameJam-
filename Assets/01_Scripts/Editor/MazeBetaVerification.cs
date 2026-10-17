@@ -22,6 +22,8 @@ public static class MazeBetaVerification
     static SpadeEnemy orbitEnemy;
     static Vector3 orbitAnchor;
     static TurretEnemy testTurret;
+    static Vector3 chaseGoal;
+    static float stoppedRollProgress;
 
     static MazeBetaVerification()
     {
@@ -126,6 +128,7 @@ public static class MazeBetaVerification
                 Require(game.playerPrefab.GetComponent<Player>() && game.playerPrefab.GetComponent<CharacterController>(),
                     "Player Prefab must contain the player controller and CharacterController");
                 Require(game.Grid.Exits.Count == game.exitCount, "Wrong configured exit count");
+                Require(game.alternativeRoutes <= 0 || game.Grid.ExtraConnectionCount > 0, "No alternative maze routes generated");
                 Require(game.Player.visual.GetComponentsInChildren<Renderer>().Length > 0, "Missing character renderer");
                 Require(Physics.Raycast(Vector3.up, Vector3.down, 2), "Start floor missing");
                 game.Boss.gracePeriod = 1000;
@@ -141,6 +144,9 @@ public static class MazeBetaVerification
             {
                 Require(game.Player.GetComponent<PlayerLimbAnimator>() && game.Player.GetComponent<PlayerLimbAnimator>().IsReady,
                     "Procedural player rig was not initialized");
+                Require(game.Player.GetComponent<PlayerLimbAnimator>().HasIdleMotion, "Breathing idle motion was not loaded");
+                Require(game.Player.GetComponent<PlayerLimbAnimator>().HasRunMotion && game.Player.GetComponent<PlayerLimbAnimator>().HasJumpMotion,
+                    "Run and jump animation assets were not loaded");
                 Require(game.Player.visual.GetComponentsInChildren<SkinnedMeshRenderer>().Length > 0, "No animated character meshes");
                 Require(Vector3.Dot(game.Player.transform.position - start, direction) > 0.1f, "Player input did not move character");
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
@@ -258,7 +264,9 @@ public static class MazeBetaVerification
             {
                 orbitEnemy = UnityEngine.Object.FindAnyObjectByType<SpadeEnemy>();
                 Require(orbitEnemy && UnityEngine.Object.FindAnyObjectByType<TurretEnemy>(), "Enemies were not spawned");
-                orbitAnchor = orbitEnemy.Anchor;
+                orbitAnchor = orbitEnemy.SpawnPosition;
+                Require(orbitEnemy.visualRoot && orbitEnemy.visualRoot.GetComponentsInChildren<Renderer>().Length > 0,
+                    "Spade enemy has no shovel prefab renderer");
                 game.Progress.AddCoins(20);
                 Require(!game.BuyPowerUp(PowerUpKind.Speed), "Purchase succeeded outside shop");
                 game.SetShopOpen(true);
@@ -279,8 +287,7 @@ public static class MazeBetaVerification
             else if (phase == 12 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
             {
                 Require(game.Progress.TotalCoins == coinsBefore + 1, "Coin did not credit wallet");
-                Require(orbitEnemy.Anchor == orbitAnchor && Vector3.Distance(orbitEnemy.transform.position, orbitAnchor) <= orbitEnemy.orbitRadius + 0.05f,
-                    "Spade left its fixed orbit");
+                Require(orbitEnemy.SpawnPosition == orbitAnchor, "Spade lost its spawn reference");
                 foreach (var turret in UnityEngine.Object.FindObjectsByType<TurretEnemy>()) turret.enabled = false;
                 Teleport(Vector3.up * 0.1f);
                 game.Player.CanMove = false;
@@ -317,9 +324,81 @@ public static class MazeBetaVerification
                 game.Begin(oldSeed);
                 Require(game.Progress.Coins == 0 && game.Progress.Health == 3 && game.Progress.SpeedSeconds == 0,
                     "Restart did not reset currency, health and power-ups");
+                game.spadeCount = 1;
+                game.turretCount = game.coinCount = game.obstacleCount = 0;
+                game.Begin(oldSeed);
+                game.Boss.IsActive = false;
+                game.Player.CanMove = false;
+                orbitEnemy = UnityEngine.Object.FindAnyObjectByType<SpadeEnemy>();
+                Require(orbitEnemy, "No chasing spade spawned");
+                orbitEnemy.gracePeriod = 0;
+                int enemyCell = game.WorldCell(orbitEnemy.transform.position);
+                int direction = Enumerable.Range(0, 4).First(d => game.Grid.Neighbor(enemyCell, d) >= 0 && game.Grid.IsOpen(enemyCell, d));
+                chaseGoal = game.CellPosition(game.Grid.Neighbor(enemyCell, direction));
+                Teleport(chaseGoal + Vector3.up * 0.1f);
+                start = orbitEnemy.transform.position;
+                Next();
+            }
+            else if (phase == 17 && EditorApplication.timeSinceStartup - phaseTime > 0.35)
+            {
+                Require(Vector3.Dot(orbitEnemy.transform.position - start, (chaseGoal - start).normalized) > 0.05f,
+                    "Spade did not pursue player through open passage");
+                game.SetShopOpen(true);
+                start = orbitEnemy.GetComponent<Rigidbody>().position;
+                Next();
+            }
+            else if (phase == 18 && EditorApplication.timeSinceStartup - phaseTime > 0.2)
+            {
+                Require(Vector3.Distance(start, orbitEnemy.GetComponent<Rigidbody>().position) < 0.01f, "Spade moved while shop was open");
+                game.SetShopOpen(false);
+                game.Boss.IsActive = false;
+                game.Player.CanMove = false;
+                Next();
+            }
+            else if (phase == 19 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
+            {
+                Require(Vector3.Distance(start, orbitEnemy.GetComponent<Rigidbody>().position) > 0.05f, "Spade did not resume pursuit");
+                game.spadeCount = 0;
+                game.shopkeeperPrefab = null;
+                game.chairCount = 0;
+                game.bossGracePeriod = 1000;
+                game.Begin(oldSeed);
+                Next();
+            }
+            else if (phase == 20 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
+            {
+                Require(game.Player.IsGrounded && game.Player.GetComponent<PlayerLimbAnimator>().HasRollMotion,
+                    "Roll motion missing or player not grounded");
+                // Spawn always has a closed south boundary. Roll into it to check collision.
+                game.Player.view.transform.rotation = Quaternion.identity;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.LeftCtrl));
+                Next();
+            }
+            else if (phase == 21 && EditorApplication.timeSinceStartup - phaseTime > 0.2)
+            {
+                Require(game.Player.IsRolling && game.Player.RollProgress > 0, "Roll control did not start motion");
+                Require(game.Player.transform.position.z < -0.1f && game.Player.transform.position.z > -game.cellSize * 0.5f,
+                    "Roll did not move toward the wall or crossed it");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                game.SetShopOpen(true);
+                stoppedRollProgress = game.Player.RollProgress;
+                start = game.Player.transform.position;
+                Next();
+            }
+            else if (phase == 22 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
+            {
+                Require(Mathf.Abs(game.Player.RollProgress - stoppedRollProgress) < 0.0001f
+                    && Vector3.Distance(start, game.Player.transform.position) < 0.001f, "Shop did not freeze roll");
+                game.SetShopOpen(false);
+                Next();
+            }
+            else if (phase == 23 && EditorApplication.timeSinceStartup - phaseTime > 1.3)
+            {
+                Require(!game.Player.IsRolling && game.Player.transform.position.z > -game.cellSize * 0.5f,
+                    "Roll did not finish or crossed a wall");
                 if (keyboard != null) InputSystem.RemoveDevice(keyboard);
                 SessionState.SetBool(Pending, false);
-                Debug.Log("BETA_PLAYMODE_OK: movement, jumps, exits, coins/shop/pause, fixed spade orbit, projectile collisions and turret line of sight.");
+                Debug.Log("BETA_PLAYMODE_OK: movement, jumps, roll/collision/pause, exits, coins/shop/pause, spade pursuit, projectile collisions and turret line of sight.");
                 EditorApplication.Exit(0);
             }
         }
