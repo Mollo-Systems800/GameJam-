@@ -17,7 +17,10 @@ public class Player : MonoBehaviour
     public Transform visual;
     public Camera view;
     public bool CanMove { get; set; } = true;
+    public float SpeedMultiplier { get; set; } = 1;
     public float CurrentSpeed { get; private set; }
+    public float PlanarSpeed { get; private set; }
+    public float VerticalVelocity => verticalSpeed;
     public int Collected { get; private set; }
     public float NextSlowdown => Mathf.Max(0, slowdownEvery - fatigueTime);
     CharacterController controller;
@@ -33,10 +36,17 @@ public class Player : MonoBehaviour
         if (visual)
         {
             var renderers = visual.GetComponentsInChildren<Renderer>();
-            if (renderers.Length > 0)
+            bool hasBody = false;
+            Bounds bounds = default;
+            foreach (var renderer in renderers)
             {
-                Bounds bounds = renderers[0].bounds;
-                foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+                if (PlayerLimbAnimator.IsControl(renderer.name)) { renderer.enabled = false; continue; }
+                if (!renderer.enabled) continue;
+                if (!hasBody) { bounds = renderer.bounds; hasBody = true; }
+                else bounds.Encapsulate(renderer.bounds);
+            }
+            if (hasBody)
+            {
                 float scale = 1.8f / Mathf.Max(0.001f, bounds.size.y);
                 Vector3 offset = bounds.center - transform.position;
                 visual.localScale *= scale;
@@ -51,7 +61,7 @@ public class Player : MonoBehaviour
 
     void Update()
     {
-        if (!CanMove) return;
+        if (!CanMove) { PlanarSpeed = 0; return; }
         fatigueTime += Time.deltaTime;
         if (slowdownEvery > 0 && fatigueTime >= slowdownEvery)
         {
@@ -87,8 +97,10 @@ public class Player : MonoBehaviour
             groundedGrace = 0;
         }
         verticalSpeed += Physics.gravity.y * Time.deltaTime;
-        controller.Move((direction * CurrentSpeed * (sprint ? sprintMultiplier : 1)
+        Vector3 beforeMove = transform.position;
+        controller.Move((direction * CurrentSpeed * SpeedMultiplier * (sprint ? sprintMultiplier : 1)
                        + Vector3.up * verticalSpeed) * Time.deltaTime);
+        PlanarSpeed = Vector3.ProjectOnPlane(transform.position - beforeMove, Vector3.up).magnitude / Mathf.Max(0.0001f, Time.deltaTime);
         if (visual && direction.sqrMagnitude > 0.01f)
             visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.LookRotation(direction), 14 * Time.deltaTime);
     }
@@ -107,5 +119,7 @@ public class Player : MonoBehaviour
         Collected = 0;
         verticalSpeed = 0;
         groundedGrace = bufferedJump = 0;
+        SpeedMultiplier = 1;
+        PlanarSpeed = 0;
     }
 }

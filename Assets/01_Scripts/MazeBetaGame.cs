@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public sealed class MazeBetaGame : MonoBehaviour
+public sealed partial class MazeBetaGame : MonoBehaviour
 {
     [Header("Laberinto")]
     [Range(3, 40)] public int width = 12;
@@ -37,9 +37,9 @@ public sealed class MazeBetaGame : MonoBehaviour
     public MazeGrid Grid { get; private set; }
     public Player Player { get; private set; }
     public MazeBoss Boss { get; private set; }
-    public bool IsPlaying => running && !paused;
+    public bool IsPlaying => running && !paused && !ShopOpen;
     public bool HasWon { get; private set; }
-    public float Elapsed { get; private set; }
+    public float Elapsed => Progress.Elapsed;
     public int ActiveSeed { get; private set; }
     public IReadOnlyList<int> ObstacleCells => obstacleCells;
     public string DefeatReason { get; private set; }
@@ -71,6 +71,7 @@ public sealed class MazeBetaGame : MonoBehaviour
         pillMaterial = MakeMaterial(new Color(0.65f, 0.9f, 1f));
         exitMaterial = MakeMaterial(new Color(0.15f, 0.85f, 0.45f));
         platformMaterial = MakeMaterial(new Color(1f, 0.65f, 0.1f));
+        InitializeRunFeatures();
         Begin(randomSeed ? NewSeed() : seed);
     }
 
@@ -89,7 +90,9 @@ public sealed class MazeBetaGame : MonoBehaviour
         obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount);
         generated = new GameObject("Beta Generated Maze").transform;
         generated.SetParent(transform, false);
-        Elapsed = 0;
+        Progress = new RunProgress();
+        ShopOpen = false;
+        pausedBeforeShop = false;
         paused = false;
         HasWon = false;
         DefeatReason = "EL EMPLEO TE ATRAPO";
@@ -202,6 +205,7 @@ public sealed class MazeBetaGame : MonoBehaviour
             }
             pickup.AddComponent<PillPickup>().Initialize(this, cell);
         }
+        SpawnEncounters(bossCell);
         Physics.SyncTransforms();
         view.transform.position = Player.transform.position + cameraOffset;
         view.transform.LookAt(Player.transform.position + Vector3.up * 0.6f);
@@ -219,14 +223,16 @@ public sealed class MazeBetaGame : MonoBehaviour
     void Update()
     {
         var keyboard = Keyboard.current;
+        if (running && ((keyboard != null && keyboard.bKey.wasPressedThisFrame)
+            || (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame))) SetShopOpen(!ShopOpen);
         if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && running)
         {
-            paused = !paused;
-            Player.CanMove = !paused;
-            Boss.IsActive = !paused;
+            if (ShopOpen) SetShopOpen(false);
+            else { paused = !paused; RefreshActivity(); }
         }
         if (!IsPlaying) return;
-        Elapsed += Time.deltaTime;
+        Progress.Advance(Time.deltaTime);
+        Player.SpeedMultiplier = Progress.SpeedMultiplier;
         if (Player.transform.position.y < fallDeathHeight)
         {
             DefeatReason = "CAISTE AL PRECIPICIO";
@@ -264,6 +270,7 @@ public sealed class MazeBetaGame : MonoBehaviour
         HasWon = won;
         Player.CanMove = false;
         Boss.IsActive = false;
+        if (won) RecordWin();
     }
 
     Transform Module(GameObject prefab, string objectName, Vector3 position, Vector3 size, bool wall)
@@ -305,7 +312,7 @@ public sealed class MazeBetaGame : MonoBehaviour
         Label("SALTA", centre + Vector3.up * 1.5f, generated, new Color(1, 0.75f, 0.2f), 0.08f);
     }
 
-    static GameObject FitVisual(GameObject prefab, Transform root, Vector3 size, bool uniform)
+    public static GameObject FitVisual(GameObject prefab, Transform root, Vector3 size, bool uniform)
     {
         var instance = Instantiate(prefab, root);
         instance.transform.localPosition = Vector3.zero;
@@ -320,7 +327,7 @@ public sealed class MazeBetaGame : MonoBehaviour
         Vector3 scale = new Vector3(size.x / Mathf.Max(0.001f, bounds.size.x),
             bounds.size.y < 0.01f ? 1 : size.y / bounds.size.y,
             size.z / Mathf.Max(0.001f, bounds.size.z));
-        if (uniform) scale = Vector3.one * (size.y / Mathf.Max(0.001f, bounds.size.y));
+        if (uniform) scale = Vector3.one * Mathf.Min(scale.x, scale.y, scale.z);
         instance.transform.localScale = scale;
         Vector3 offset = bounds.center - root.position;
         instance.transform.localPosition = new Vector3(-offset.x * scale.x,
@@ -382,12 +389,13 @@ public sealed class MazeBetaGame : MonoBehaviour
         GUI.Label(new Rect(25, 118, 540, 25), "WASD / flechas / stick: mover | Shift / L3: correr | Esc: pausa");
         GUI.Label(new Rect(25, 144, 540, 25), "Espacio / boton inferior del mando: saltar. Evita los precipicios.");
         GUI.Label(new Rect(25, 170, 540, 25), $"Salidas: {Grid.Exits.Count} | Tramos de salto: {obstacleCells.Count} | Pastillas: restauran velocidad");
-        if (!running || paused)
+        DrawRunHUD(screenWidth, screenHeight);
+        if ((!running || paused) && !ShopOpen)
         {
             Rect panel = new Rect(screenWidth / 2 - 235, screenHeight / 2 - 115, 470, 230);
             GUI.Box(panel, paused ? "PAUSA" : HasWon ? "ESCAPASTE" : DefeatReason);
             GUI.Label(new Rect(panel.x + 24, panel.y + 35, 425, 40), paused ? "Pulsa Esc para continuar."
-                : HasWon ? "Solicitud de empleo: ¿listo para otro intento?" : "Prueba otra ruta y recoge cajas de pastillas.");
+                : HasWon ? $"Tiempo: {Elapsed:0.0}s | Score final: {Progress.Score}" : "Prueba otra ruta y usa monedas en la tienda (B).");
             if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar el mismo laberinto")) Begin(ActiveSeed);
             if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto aleatorio")) Begin(NewSeed());
         }

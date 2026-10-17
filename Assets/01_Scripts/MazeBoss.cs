@@ -84,6 +84,6 @@ public sealed class MazeBoss : MonoBehaviour
             sharedPassage = game.Grid.Neighbor(bossCell, d) == playerCell && game.Grid.IsOpen(bossCell, d);
         if (sharedPassage && Vector3.Distance(playerPosition, bossPosition) < 0.85f
             && game.Player.transform.position.y > -0.5f)
-            game.Finish(false);
+            game.HitPlayer(RunProgress.MaxHealth, "EL EMPLEO TE ATRAPO");
     }
 }

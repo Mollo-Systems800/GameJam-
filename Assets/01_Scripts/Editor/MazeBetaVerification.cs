@@ -18,6 +18,10 @@ public static class MazeBetaVerification
     static MazeBetaGame game;
     static int pickupCount;
     static int oldSeed;
+    static int coinsBefore;
+    static SpadeEnemy orbitEnemy;
+    static Vector3 orbitAnchor;
+    static TurretEnemy testTurret;
 
     static MazeBetaVerification()
     {
@@ -114,6 +118,9 @@ public static class MazeBetaVerification
             {
                 game = UnityEngine.Object.FindAnyObjectByType<MazeBetaGame>();
                 if (!game || !game.Player || !game.Boss) return;
+                game.recordResults = false;
+                game.spadeCount = game.turretCount = game.coinCount = 0;
+                game.Begin(game.ActiveSeed);
                 Require(game.playerPrefab && game.wallPrefab && game.floorPrefab && game.platformPrefab && game.bossVisualPrefab,
                     "Missing scene references");
                 Require(game.playerPrefab.GetComponent<Player>() && game.playerPrefab.GetComponent<CharacterController>(),
@@ -132,6 +139,9 @@ public static class MazeBetaVerification
             }
             else if (phase == 1 && EditorApplication.timeSinceStartup - phaseTime > 0.3)
             {
+                Require(game.Player.GetComponent<PlayerLimbAnimator>() && game.Player.GetComponent<PlayerLimbAnimator>().IsReady,
+                    "Procedural player rig was not initialized");
+                Require(game.Player.visual.GetComponentsInChildren<SkinnedMeshRenderer>().Length > 0, "No animated character meshes");
                 Require(Vector3.Dot(game.Player.transform.position - start, direction) > 0.1f, "Player input did not move character");
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 Teleport(Vector3.up * 0.1f);
@@ -204,6 +214,9 @@ public static class MazeBetaVerification
             else if (phase == 8 && EditorApplication.timeSinceStartup - phaseTime > 0.15)
             {
                 Require(game.Player.transform.position.y > 0.3f, "Jump input did not lift player");
+                var knee = game.Player.visual.Find("Procedural Limb Rig/Hips/LeftThigh/LeftShin");
+                Require(knee && Quaternion.Angle(Quaternion.identity, knee.localRotation) > 5,
+                    "Jump did not flex the player's knee");
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState());
                 Next();
             }
@@ -234,9 +247,79 @@ public static class MazeBetaVerification
                     game.SendMessage("Update");
                     Require(game.HasWon && !game.IsPlaying, "One of the exits did not win");
                 }
+                game.spadeCount = game.turretCount = 2;
+                game.coinCount = 6;
+                game.Begin(oldSeed);
+                game.Boss.IsActive = false;
+                game.Boss.gracePeriod = 1000;
+                Next();
+            }
+            else if (phase == 11 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
+            {
+                orbitEnemy = UnityEngine.Object.FindAnyObjectByType<SpadeEnemy>();
+                Require(orbitEnemy && UnityEngine.Object.FindAnyObjectByType<TurretEnemy>(), "Enemies were not spawned");
+                orbitAnchor = orbitEnemy.Anchor;
+                game.Progress.AddCoins(20);
+                Require(!game.BuyPowerUp(PowerUpKind.Speed), "Purchase succeeded outside shop");
+                game.SetShopOpen(true);
+                Require(!game.IsPlaying && !game.Player.CanMove && !game.Boss.IsActive, "Shop did not pause action");
+                float stoppedTime = game.Elapsed;
+                game.SendMessage("Update");
+                Require(game.Elapsed == stoppedTime, "Shop did not pause run timer");
+                Require(game.BuyPowerUp(PowerUpKind.Speed) && game.Progress.Coins == 14, "Shop debit failed");
+                game.SetShopOpen(false);
+                Require(game.IsPlaying && game.Player.SpeedMultiplier == 1.5f, "Shop did not resume/apply power-up");
+                game.Boss.IsActive = false;
+                var coin = UnityEngine.Object.FindAnyObjectByType<CoinPickup>();
+                Require(coin, "No currency collectible spawned");
+                coinsBefore = game.Progress.TotalCoins;
+                Teleport(new Vector3(coin.transform.position.x, 0.1f, coin.transform.position.z));
+                Next();
+            }
+            else if (phase == 12 && EditorApplication.timeSinceStartup - phaseTime > 0.25)
+            {
+                Require(game.Progress.TotalCoins == coinsBefore + 1, "Coin did not credit wallet");
+                Require(orbitEnemy.Anchor == orbitAnchor && Vector3.Distance(orbitEnemy.transform.position, orbitAnchor) <= orbitEnemy.orbitRadius + 0.05f,
+                    "Spade left its fixed orbit");
+                foreach (var turret in UnityEngine.Object.FindObjectsByType<TurretEnemy>()) turret.enabled = false;
+                Teleport(Vector3.up * 0.1f);
+                game.Player.CanMove = false;
+                game.FireProjectile(Vector3.back * 0.8f + Vector3.up * 0.9f, Vector3.back, 7, 1, null);
+                Next();
+            }
+            else if (phase == 13 && EditorApplication.timeSinceStartup - phaseTime > 0.3)
+            {
+                Require(!UnityEngine.Object.FindAnyObjectByType<EnemyProjectile>() && game.Progress.Health == 3,
+                    "Projectile crossed boundary wall or damaged distant player");
+                game.FireProjectile(Vector3.forward * 0.8f + Vector3.up * 0.9f, Vector3.back, 7, 1, null);
+                Next();
+            }
+            else if (phase == 14 && EditorApplication.timeSinceStartup - phaseTime > 0.3)
+            {
+                Require(game.Progress.Health == 2, "Projectile did not damage player");
+                var turretObject = UnityEngine.Object.Instantiate(game.turretEnemyPrefab, new Vector3(0.85f, 0, 0), Quaternion.identity);
+                testTurret = turretObject.GetComponent<TurretEnemy>();
+                testTurret.fireInterval = 0.25f;
+                testTurret.Initialize(game);
+                Next();
+            }
+            else if (phase == 15 && EditorApplication.timeSinceStartup - phaseTime > 2)
+            {
+                Require(game.Progress.Health == 1, "Visible turret did not fire at player");
+                testTurret.transform.position = Vector3.back * game.cellSize;
+                Physics.SyncTransforms();
+                Next();
+            }
+            else if (phase == 16 && EditorApplication.timeSinceStartup - phaseTime > 0.7)
+            {
+                Require(game.Progress.Health == 1 && !UnityEngine.Object.FindAnyObjectByType<EnemyProjectile>(), "Turret fired through a wall");
+                UnityEngine.Object.Destroy(testTurret.gameObject);
+                game.Begin(oldSeed);
+                Require(game.Progress.Coins == 0 && game.Progress.Health == 3 && game.Progress.SpeedSeconds == 0,
+                    "Restart did not reset currency, health and power-ups");
                 if (keyboard != null) InputSystem.RemoveDevice(keyboard);
                 SessionState.SetBool(Pending, false);
-                Debug.Log("BETA_PLAYMODE_OK: input, collision, pickups, fatigue, boss, jump/landing, real floor gaps, falling, all exits, both restarts.");
+                Debug.Log("BETA_PLAYMODE_OK: movement, jumps, exits, coins/shop/pause, fixed spade orbit, projectile collisions and turret line of sight.");
                 EditorApplication.Exit(0);
             }
         }

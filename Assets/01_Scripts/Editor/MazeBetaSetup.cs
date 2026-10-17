@@ -21,6 +21,10 @@ public static class MazeBetaSetup
         game.floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Floor_3M.prefab");
         game.bossVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SolicitudTrabajo.fbx");
         game.platformPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/JumpPlatform.prefab");
+        game.spadeEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SpadeEnemy.prefab");
+        game.turretEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/TurretEnemy.prefab");
+        game.projectilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/EnemyProjectile.prefab");
+        game.coinPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/CoinPickup.prefab");
         if (!game.playerPrefab || !game.wallPrefab || !game.floorPrefab)
             throw new System.InvalidOperationException("Faltan los recursos del personaje o del laberinto.");
         Camera.main.transform.position = game.cameraOffset;

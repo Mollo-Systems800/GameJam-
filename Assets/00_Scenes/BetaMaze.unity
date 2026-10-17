@@ -490,6 +490,13 @@ MonoBehaviour:
   bossIncreaseEvery: 30
   bossGracePeriod: 5
   pillCount: 12
+  spadeEnemyPrefab: {fileID: 100001, guid: 5e6ad2cbebeb45c08ca21ddecef30291, type: 3}
+  turretEnemyPrefab: {fileID: 100001, guid: 469d1cf4e62b45a883e0421c0bc9da9d, type: 3}
+  projectilePrefab: {fileID: 100001, guid: 1e7514a185764a11a6631e5f4de624ea, type: 3}
+  coinPrefab: {fileID: 100001, guid: 4c9f6ee3b94843c794d3c6dda88ed0c2, type: 3}
+  spadeCount: 6
+  turretCount: 4
+  coinCount: 36
   cameraOffset: {x: 0, y: 17, z: -7}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
