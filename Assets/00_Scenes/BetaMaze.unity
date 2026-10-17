@@ -161,22 +161,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cea8f4ed81a9482c835f1bcfbd88b017, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MazeBetaGame
-  spadeEnemyPrefab: {fileID: 100001, guid: 5e6ad2cbebeb45c08ca21ddecef30291, type: 3}
-  turretEnemyPrefab: {fileID: 100001, guid: 469d1cf4e62b45a883e0421c0bc9da9d, type: 3}
-  projectilePrefab: {fileID: 100001, guid: 1e7514a185764a11a6631e5f4de624ea, type: 3}
-  coinPrefab: {fileID: 100001, guid: 4c9f6ee3b94843c794d3c6dda88ed0c2, type: 3}
-  turretBaseVisualPrefab: {fileID: 0}
-  turretBarrelVisualPrefab: {fileID: 0}
-  coinVisualPrefab: {fileID: 0}
-  projectileVisualPrefab: {fileID: 0}
-  shopkeeperPrefab: {fileID: 100001, guid: dcc07380035f5e31a16830efccaddbd7, type: 3}
-  chairPrefab: {fileID: 100001, guid: ffd4196f89485cdbac047be32f7719df, type: 3}
-  chairCount: 10
-  spadeCount: 6
-  turretCount: 4
-  coinCount: 36
   startLevel: 1
   minimumExitDistanceRatio: 0.75
   areas:
@@ -228,6 +214,27 @@ MonoBehaviour:
     worldLabelPrefab: {fileID: 0}
     wallColor: {r: 0.16, g: 0.32, b: 0.24, a: 1}
     floorColor: {r: 0.28, g: 0.37, b: 0.29, a: 1}
+  spadeEnemyPrefab: {fileID: 100001, guid: 5e6ad2cbebeb45c08ca21ddecef30291, type: 3}
+  turretEnemyPrefab: {fileID: 100001, guid: 469d1cf4e62b45a883e0421c0bc9da9d, type: 3}
+  projectilePrefab: {fileID: 100001, guid: 1e7514a185764a11a6631e5f4de624ea, type: 3}
+  coinPrefab: {fileID: 100001, guid: 4c9f6ee3b94843c794d3c6dda88ed0c2, type: 3}
+  turretBaseVisualPrefab: {fileID: 0}
+  turretBarrelVisualPrefab: {fileID: 0}
+  coinVisualPrefab: {fileID: 0}
+  projectileVisualPrefab: {fileID: 0}
+  shopkeeperPrefab: {fileID: 100001, guid: dcc07380035f5e31a16830efccaddbd7, type: 3}
+  chairPrefab: {fileID: 100001, guid: ffd4196f89485cdbac047be32f7719df, type: 3}
+  chairCount: 10
+  spadeCount: 6
+  turretCount: 4
+  coinCount: 36
+  itemPool:
+  - {fileID: 11400000, guid: 772951e20f862fb48aef143ed34bfca4, type: 2}
+  - {fileID: 11400000, guid: b4842a7dbf31e244aa48fc654ea9c24e, type: 2}
+  - {fileID: 11400000, guid: f2de7286c8640d8499f597ecf5238f4f, type: 2}
+  - {fileID: 11400000, guid: a018f3d25a27970489b52223fad6931b, type: 2}
+  itemCount: 4
+  shieldEffectPrefab: {fileID: 7846688204570589277, guid: 0e952c6947d88ef4b8855d70973dfa25, type: 3}
   width: 12
   height: 12
   cellSize: 3
@@ -372,8 +379,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -514,8 +521,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
   m_CustomShadowLayers: 0
@@ -560,8 +567,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_IsGlobal: 1
   priority: 0
   blendDistance: 0

@@ -446,29 +446,30 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         GUI.Label(new Rect(25, 144, 540, 25), "Raton / stick: mirar | Espacio / A: saltar | C / Ctrl / B mando: rodar");
         GUI.Label(new Rect(25, 170, 540, 25), $"Salidas: {Grid.Exits.Count} | Tramos de salto: {obstacleCells.Count} | Pastillas: restauran velocidad");
         DrawRunHUD(screenWidth, screenHeight);
-        if ((!running || paused) && !ShopOpen)
-        {
-            Rect panel = new Rect(screenWidth / 2 - 235, screenHeight / 2 - 115, 470, 230);
-            GUI.Box(panel, paused ? "PAUSA" : CampaignComplete ? "COMPLETASTE LAS 3 AREAS" : HasWon ? "NIVEL COMPLETADO" : DefeatReason);
-            GUI.Label(new Rect(panel.x + 24, panel.y + 35, 425, 40), paused ? "Pulsa Esc para continuar."
-                : HasWon ? $"Tiempo: {Elapsed:0.0}s | Score final: {Progress.Score}" : "Prueba otra ruta y usa monedas en la tienda (B).");
-            if (HasWon && !paused)
-            {
-                string next = CampaignComplete ? "Nueva campana desde el area 1"
-                    : CurrentLevelInArea == 2 ? "Continuar a la siguiente area" : "Siguiente nivel";
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), next))
-                {
-                    if (CampaignComplete) StartCampaign(NewSeed());
-                    else AdvanceLevel();
-                }
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Repetir este nivel")) Begin(ActiveSeed);
-            }
-            else
-            {
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar este nivel (misma semilla)")) Begin(ActiveSeed);
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto para este nivel")) Begin(NewSeed());
-            }
-        }
+        //if ((!running || paused) && !ShopOpen)
+        //{
+        //    Rect panel = new Rect(screenWidth / 2 - 235, screenHeight / 2 - 115, 470, 230);
+        //    GUI.Box(panel, paused ? "PAUSA" : CampaignComplete ? "COMPLETASTE LAS 3 AREAS" : HasWon ? "NIVEL COMPLETADO" : DefeatReason);
+        //    GUI.Label(new Rect(panel.x + 24, panel.y + 35, 425, 40), paused ? "Pulsa Esc para continuar."
+        //        : HasWon ? $"Tiempo: {Elapsed:0.0}s | Score final: {Progress.Score}" : "Prueba otra ruta y usa monedas en la tienda (B).");
+        //    if (HasWon && !paused)
+        //    {
+        //        string next = CampaignComplete ? "Nueva campana desde el area 1"
+        //            : CurrentLevelInArea == 2 ? "Continuar a la siguiente area" : "Siguiente nivel";
+        //        if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), next))
+        //        {
+        //            if (CampaignComplete) StartCampaign(NewSeed());
+        //            else AdvanceLevel();
+        //        }
+        //        if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Repetir este nivel")) Begin(ActiveSeed);
+        //    }
+        //    else
+        //    {
+        //        if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar este nivel (misma semilla)")) Begin(ActiveSeed);
+        //        if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto para este nivel")) Begin(NewSeed());
+        //    }
+        //}
+        DrawMenuPanel(screenWidth, screenHeight);
         GUI.matrix = previous;
     }
 }

@@ -38,6 +38,10 @@ public class Player : MonoBehaviour
     readonly PlayerRollState roll = new PlayerRollState();
     Vector3 rollDirection;
 
+    //metodos añadidos por powerups
+    public bool CanDoubleJump { get; set; }
+    bool airJumpUsed;
+
     void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -117,6 +121,16 @@ public class Player : MonoBehaviour
             bufferedJump = 0;
             groundedGrace = 0;
         }
+
+        if (controller.isGrounded) airJumpUsed = false;
+        else if (!IsRolling && CanDoubleJump && !airJumpUsed && bufferedJump > 0 && groundedGrace <= 0)
+        {
+            verticalSpeed = Mathf.Sqrt(2 * Mathf.Abs(Physics.gravity.y) * jumpHeight);
+            bufferedJump = 0;
+            airJumpUsed = true;
+        }
+
+
         verticalSpeed += Physics.gravity.y * Time.deltaTime;
         Vector3 beforeMove = transform.position;
         Vector3 planarVelocity = IsRolling ? rollDirection * rollSpeed
@@ -163,5 +177,8 @@ public class Player : MonoBehaviour
         PlanarSpeed = 0;
         IsSprinting = false;
         roll.Reset();
+
+        CanDoubleJump = false; 
+        airJumpUsed = false;
     }
 }

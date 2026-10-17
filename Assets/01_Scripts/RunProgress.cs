@@ -13,8 +13,13 @@ public sealed class RunProgress
     public float SpeedSeconds { get; private set; }
     public float ShieldSeconds { get; private set; }
     public float HurtSeconds { get; private set; }
-    public float SpeedMultiplier => SpeedSeconds > 0 ? 1.5f : 1;
+    public float SpeedMultiplier => SpeedSeconds > 0 ? speedFactor : 1;
     public int Score => Math.Max(0, 10000 - (int)Math.Min(10000, Elapsed * 20)) + TotalCoins * 50;
+
+    //metodos añadidos por powerups
+    float speedFactor = 1.5f;
+    public float DoubleJumpSeconds { get; private set; }
+    public bool HasDoubleJump => DoubleJumpSeconds > 0;
 
     public void Advance(float delta)
     {
@@ -23,6 +28,7 @@ public sealed class RunProgress
         SpeedSeconds = Math.Max(0, SpeedSeconds - delta);
         ShieldSeconds = Math.Max(0, ShieldSeconds - delta);
         HurtSeconds = Math.Max(0, HurtSeconds - delta);
+        DoubleJumpSeconds = Math.Max(0, DoubleJumpSeconds - delta);
     }
 
     public void AddCoins(int count)
@@ -55,11 +61,23 @@ public sealed class RunProgress
         Coins -= Price(kind);
         switch (kind)
         {
-            case PowerUpKind.Speed: SpeedSeconds = 10; break;
+            case PowerUpKind.Speed: SpeedSeconds = 10; speedFactor = 1.5f; break;
             case PowerUpKind.Shield: ShieldSeconds = 8; break;
             case PowerUpKind.Heal: Health = Math.Min(MaxHealth, Health + 1); break;
         }
         return true;
+    }
+
+    public void ApplyItem(ItemType type, float duration, float value)
+    {
+        if (Health <= 0) return;
+        switch (type)
+        {
+            case ItemType.Curacion: Health = Math.Min(MaxHealth, Health + Math.Max(1, (int)Math.Round(value))); break;
+            case ItemType.Escudo: ShieldSeconds = Math.Max(ShieldSeconds, duration); break;
+            case ItemType.Velocidad: speedFactor = Math.Max(1, value); SpeedSeconds = Math.Max(SpeedSeconds, duration); break;
+            case ItemType.SaltoDoble: DoubleJumpSeconds = Math.Max(DoubleJumpSeconds, duration); break;
+        }
     }
 
     public bool TakeDamage(int amount)
