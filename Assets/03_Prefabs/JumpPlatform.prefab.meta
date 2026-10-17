@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c570e7855c914fbd991a9569012c5dab
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302221
+  packageName: Maze Modular Puzzle Kit
+  packageVersion: 1.0
+  assetPath: Assets/Maze/Prefabs/Floor_3M.prefab
+  uploadId: 713915
+
