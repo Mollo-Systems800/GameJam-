@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 
-public class Player : MonoBehaviour
+public partial class Player : MonoBehaviour
 
 {
 
@@ -410,6 +410,12 @@ public class Player : MonoBehaviour
 
 
 
+        if (IsRecoiling)
+        {
+            jumpPressed = rollPressed = false;
+            sprint = false;
+        }
+
         if (rollPressed)
 
             roll.Request();
@@ -592,7 +598,7 @@ public class Player : MonoBehaviour
 
         Vector3 planarStep =
 
-            planarVelocity * Time.deltaTime;
+            DamageMovementStep(planarVelocity, Time.deltaTime);
 
 
 
@@ -644,7 +650,7 @@ public class Player : MonoBehaviour
 
             input.sqrMagnitude > 0.01f &&
 
-            !IsRolling &&
+            !IsRolling && !IsRecoiling &&
 
             PlanarSpeed > 0.1f;
 
@@ -798,6 +804,8 @@ public class Player : MonoBehaviour
 
 
         roll.Reset();
+
+        ResetDamageReaction();
 
 
 

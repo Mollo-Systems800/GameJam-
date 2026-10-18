@@ -149,7 +149,7 @@ public sealed partial class MazeAudioDirector : MonoBehaviour
         voice.clip=cue.variations[pick];
         // Keep warnings low and breathing natural; action Foley gets a brisker response.
         float speed=sound==MazeSound.BossAlert||sound==MazeSound.BossAccelerate||sound==MazeSound.BossRustle
-            ||sound==MazeSound.Breath||sound==MazeSound.SprintBreath?1:effectsPlaybackSpeed;
+            ||sound==MazeSound.Breath||sound==MazeSound.SprintBreath||sound==MazeSound.Hurt?1:effectsPlaybackSpeed;
         voice.pitch=speed+Random.Range(-cue.pitchVariation,cue.pitchVariation);
         voiceGains[voice]=Mathf.Clamp01(cue.volume*gain);voice.volume=voiceGains[voice]*EffectsGain;
         voice.Play();LastCue=sound;PlayedCueCount++;

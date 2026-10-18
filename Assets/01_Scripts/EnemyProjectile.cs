@@ -32,7 +32,7 @@ public sealed class EnemyProjectile : MonoBehaviour
         {
             if (collider.transform.IsChildOf(transform)) continue;
             if (source && collider.transform.IsChildOf(source)) continue;
-            if (collider.GetComponentInParent<Player>() == game.Player) game.HitPlayer(damage, "TE ALCANZO UN FORMULARIO DE RR. HH.");
+            if (collider.GetComponentInParent<Player>() == game.Player) HitPlayer();
             MazeAudioDirector.Play(MazeSound.PaperImpact,transform.position,.45f);
             Destroy(gameObject);
             return;
@@ -52,11 +52,14 @@ public sealed class EnemyProjectile : MonoBehaviour
         {
             MazeAudioDirector.Play(MazeSound.PaperImpact,first.Value.point,.45f);
             if (first.Value.collider.GetComponentInParent<Player>() == game.Player)
-                game.HitPlayer(damage, "TE ALCANZO UN FORMULARIO DE RR. HH.");
+                HitPlayer();
             Destroy(gameObject);
             return;
         }
         transform.position += step;
         transform.Rotate(Vector3.forward,Time.deltaTime*110,Space.Self);
     }
+
+    void HitPlayer() => game.HitPlayer(damage, "TE ALCANZO UN FORMULARIO DE RR. HH.",
+        hitSource: game.Player.transform.position - velocity.normalized);
 }

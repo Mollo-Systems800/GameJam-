@@ -107,6 +107,8 @@ public sealed partial class MazeBetaGame
             if (hazard && hazard.bounds.Intersects(body))
             {
                 DefeatReason = "CAISTE EN LAS PUAS";
+                Player.ReactToDamage();
+                MazeAudioDirector.Play(MazeSound.Hurt);
                 Finish(false);
                 return true;
             }

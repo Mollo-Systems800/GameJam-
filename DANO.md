@@ -1,0 +1,9 @@
+# Reaccion al dano
+
+Cuando `MazeBetaGame.HitPlayer` acepta un golpe, el player recibe un destello rojo de 0,55 segundos, un retroceso con desaceleracion de 0,28 segundos y una exclamacion sintetizada «auh». El escudo y los 1,2 segundos de invulnerabilidad existentes bloquean las tres respuestas cuando no se pierde vida. Las puas tambien activan la reaccion antes de la derrota.
+
+`Player.Damage.cs` aplica el color a los renderers visibles, incluidos los SkinnedMeshRenderer generados al comenzar la partida. Usa MaterialPropertyBlock por material y restaura sus propiedades al terminar, reiniciar o desactivar el player; no modifica materiales compartidos ni texturas. El retroceso se aleja del atacante y, sin origen, va hacia atras respecto al personaje. Se integra en el movimiento del CharacterController con gravedad y colisiones; durante la recuperacion se reduce el control y se bloquean salto, sprint y rodada. Tienda y pausa congelan la reaccion.
+
+En `Assets/03_Prefabs/Player.prefab`, componente Player, se pueden ajustar **Damage Tint**, **Damage Flash Duration**, **Knockback Speed** y **Knockback Duration**. El clip de dolor sigue siendo `Assets/05_Sounds/Foley/Hurt.wav`, reemplazable desde `Assets/Resources/MazeAudioLibrary.asset`. Respeta el volumen y silencio de efectos, y conserva el tono vocal aunque se aceleren otros efectos. Regenerar solo esta voz: `Tools/CreateOfficeAudio.py --hurt-update` con Python y NumPy.
+
+Prueba nativa: crear `Logs/verify-player-damage.request` con Unity en modo edicion y la escena guardada. Resultado en `Logs/player-damage-verification-result.txt`; captura en `Logs/player-damage-flash.png`. Comprueba skin, restauracion de materiales, retroceso con W pulsada, colisiones de pared y piso, escudo, invulnerabilidad, pausa y golpe mortal. Usa una plataforma temporal sobre el laberinto y no guarda partidas, nombres ni preferencias de sonido.

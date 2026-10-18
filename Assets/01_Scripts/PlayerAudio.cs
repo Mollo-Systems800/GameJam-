@@ -22,7 +22,7 @@ public sealed class PlayerAudio : MonoBehaviour
         if(!grounded)airtime+=dt;
         if(grounded&&!wasGrounded&&airtime>.16f){MazeAudioDirector.Play(MazeSound.Land,null,.7f);airtime=travelled=0;}
         Vector3 step=Vector3.ProjectOnPlane(transform.position-previousPosition,Vector3.up);
-        if(grounded&&!player.IsRolling&&player.PlanarSpeed>.3f&&step.magnitude<1)
+        if(grounded&&!player.IsRolling&&!player.IsRecoiling&&player.PlanarSpeed>.3f&&step.magnitude<1)
         {
             travelled+=step.magnitude;
             if(travelled>=(player.IsSprinting?.78f:.65f))

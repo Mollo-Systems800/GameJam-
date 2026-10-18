@@ -122,7 +122,7 @@ public sealed class SpadeEnemy : MonoBehaviour
             sharedPassage = game.Grid.Neighbor(enemyCell, d) == targetCell && game.Grid.IsOpen(enemyCell, d);
         if (sharedPassage && game.TouchesPlayer(position + Vector3.up * 0.55f, contactRadius))
         {
-            if(game.HitPlayer(damage, "TE ALCANZO UN SPADE"))MazeAudioDirector.Play(MazeSound.ShovelHit,null,.55f);
+            if(game.HitPlayer(damage, "TE ALCANZO UN SPADE", hitSource: position))MazeAudioDirector.Play(MazeSound.ShovelHit,null,.55f);
         }
     }
 }

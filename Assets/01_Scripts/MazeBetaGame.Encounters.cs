@@ -187,7 +187,7 @@ public sealed partial class MazeBetaGame
         return (axis - centre).sqrMagnitude <= (controller.radius + radius) * (controller.radius + radius);
     }
 
-    public bool HitPlayer(int damage, string reason, bool fromBoss = false)
+    public bool HitPlayer(int damage, string reason, bool fromBoss = false, Vector3? hitSource = null)
     {
         if (!IsPlaying) return false;
         if (!Progress.TakeDamage(damage))
@@ -195,6 +195,7 @@ public sealed partial class MazeBetaGame
             if(damage>0 && Progress.ShieldSeconds>0)MazeAudioDirector.Play(MazeSound.ShieldHit);
             return false;
         }
+        Player.ReactToDamage(hitSource);
         MazeAudioDirector.Play(MazeSound.Hurt);
         if (Progress.Health == 0)
         {
