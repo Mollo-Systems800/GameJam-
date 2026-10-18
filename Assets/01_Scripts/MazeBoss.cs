@@ -16,6 +16,8 @@ public sealed class MazeBoss : MonoBehaviour
     List<int> path = new List<int>();
     int pathIndex;
     float elapsed;
+    float rustleTime;
+    int speedStep;
 
     public void Initialize(MazeBetaGame owner, int start)
     {
@@ -29,8 +31,12 @@ public sealed class MazeBoss : MonoBehaviour
     {
         if (!game || !IsActive) return;
         elapsed += Time.deltaTime;
-        CurrentSpeed = startingSpeed + (increaseEvery > 0 ? Mathf.Floor(elapsed / increaseEvery) * speedIncrease : 0);
+        int step=increaseEvery>0?Mathf.FloorToInt(elapsed/increaseEvery):0;
+        CurrentSpeed = startingSpeed + step * speedIncrease;
+        if(step>speedStep){speedStep=step;MazeAudioDirector.Play(MazeSound.BossAccelerate,transform.position,.65f);}
         if (elapsed < gracePeriod) return;
+        rustleTime+=Time.deltaTime;
+        if(rustleTime>.7f){rustleTime=0;MazeAudioDirector.Play(MazeSound.BossRustle,transform.position,.4f);}
         // Repath at cell centres so the boss cannot cut diagonally through corridor walls.
         if (pathIndex >= path.Count)
         {
@@ -84,6 +90,6 @@ public sealed class MazeBoss : MonoBehaviour
             sharedPassage = game.Grid.Neighbor(bossCell, d) == playerCell && game.Grid.IsOpen(bossCell, d);
         if (sharedPassage && Vector3.Distance(playerPosition, bossPosition) < 0.85f
             && game.Player.transform.position.y > -0.5f)
-            game.HitPlayer(RunProgress.MaxHealth, "EL EMPLEO TE ATRAPO");
+            game.HitPlayer(RunProgress.MaxHealth, "EL EMPLEO TE ATRAPO", true);
     }
 }

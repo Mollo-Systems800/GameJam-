@@ -5,6 +5,9 @@ using UnityEngine;
 // Animation then starts from a standing mesh instead of adding motion to its crouch.
 public sealed class PlayerRestPosture
 {
+    // The source FBX contains a second, displaced eyebrow pair above the hair.
+    // Keep it in the source bounds used to calibrate the rig, but never draw it.
+    public static bool IsDuplicateAccessory(string name) => name == "Cube.008";
     readonly Bounds body;
     readonly float strength;
     readonly Profile torso, arms, legs;
@@ -33,31 +36,39 @@ public sealed class PlayerRestPosture
         PelvisZ = torso.At(0.55f);
     }
 
-    public Vector3 Point(Vector3 p, string meshName)
-    { p.z -= Offset(p, meshName); return p; }
+    public Vector3 Point(Vector3 p, string meshName, float anatomicalArm = -1)
+    { p.z -= Offset(p, meshName, anatomicalArm); return p; }
+
+    public float ArmWeight(Vector3 p, float anatomicalArm) => PlayerRigWeights.ArmWeight(
+        (p.x - body.center.x) / body.size.y, (p.y - body.min.y) / body.size.y, ArmForward(p), anatomicalArm);
+    public float ArmForward(Vector3 p) => (p.z - torso.At((p.y - body.min.y) / body.size.y)) / body.size.y;
 
     // Differential of the same smooth deformation preserves normals and tangents.
-    public Vector3 Normal(Vector3 point, Vector3 normal, string meshName)
+    public Vector3 Normal(Vector3 point, Vector3 normal, string meshName, float anatomicalArm = -1)
     {
-        Gradient(point, meshName, out float dx, out float dy);
+        Gradient(point, meshName, anatomicalArm, out float dx, out float dy);
         return new Vector3(normal.x + dx * normal.z, normal.y + dy * normal.z, normal.z).normalized;
     }
-    public Vector3 Tangent(Vector3 point, Vector3 tangent, string meshName)
+    public Vector3 Tangent(Vector3 point, Vector3 tangent, string meshName, float anatomicalArm = -1)
     {
-        Gradient(point, meshName, out float dx, out float dy);
+        Gradient(point, meshName, anatomicalArm, out float dx, out float dy);
         return new Vector3(tangent.x, tangent.y, tangent.z - dx * tangent.x - dy * tangent.y).normalized;
     }
-    void Gradient(Vector3 p, string name, out float dx, out float dy)
+    void Gradient(Vector3 p, string name, float anatomicalArm, out float dx, out float dy)
     {
         float epsilon = body.size.y * 0.001f;
-        dx = (Offset(p + Vector3.right * epsilon, name) - Offset(p - Vector3.right * epsilon, name)) / (2 * epsilon);
-        dy = (Offset(p + Vector3.up * epsilon, name) - Offset(p - Vector3.up * epsilon, name)) / (2 * epsilon);
+        dx = (Offset(p + Vector3.right * epsilon, name, anatomicalArm) - Offset(p - Vector3.right * epsilon, name, anatomicalArm)) / (2 * epsilon);
+        dy = (Offset(p + Vector3.up * epsilon, name, anatomicalArm) - Offset(p - Vector3.up * epsilon, name, anatomicalArm)) / (2 * epsilon);
     }
-    float Offset(Vector3 p, string name)
+    float Offset(Vector3 p, string name, float anatomicalArm)
     {
         float y = (p.y - body.min.y) / body.size.y;
         float x = Mathf.Abs(p.x - body.center.x) / body.size.y;
         bool leg = name == "Cube.005" || name == "Cube.010" || (name == "Cube.001" && y < 0.3f);
+        // All face, hair and eye meshes receive exactly the same translation.
+        // A height-dependent shear changes the jaw and separates accessories.
+        if (name != "Cube.001" && name != "Cube.007" && !leg && name != "Cube.006")
+            return (torso.At(0.85f) - PelvisZ) * strength;
         float offset = leg ? (legs.At(y) - PelvisZ) * (1 - Smooth(0.44f, 0.55f, y))
                            : torso.At(y) - PelvisZ;
         if (!leg)
@@ -67,9 +78,12 @@ public sealed class PlayerRestPosture
             offset = Mathf.Lerp(offset, torso.At(0.85f) - PelvisZ, head);
             // One spatial field for exposed skin and sleeves keeps their shared
             // seams coincident, including the low wrists in this source pose.
-            float arm = Smooth(0.11f, 0.17f, x) * Smooth(0.35f, 0.43f, y) * (1 - Smooth(0.78f, 0.85f, y));
-            float relaxedZ = PelvisZ + Mathf.Max(0, 0.77f - y) * body.size.y * Mathf.Tan(4 * Mathf.Deg2Rad);
-            offset = Mathf.Lerp(offset, arms.At(y) - relaxedZ, arm);
+            float arm = ArmWeight(p, anatomicalArm);
+            // Translate the hand/cuff together, preserving finger lengths and
+            // knuckles. Blend into the posture correction around the elbow.
+            float sampleY = Mathf.Lerp(0.52f, y, Smooth(0.53f, 0.60f, y));
+            float relaxedZ = PelvisZ + Mathf.Max(0, 0.77f - sampleY) * body.size.y * Mathf.Tan(4 * Mathf.Deg2Rad);
+            offset = Mathf.Lerp(offset, arms.At(sampleY) - relaxedZ, arm);
         }
         return offset * strength;
     }

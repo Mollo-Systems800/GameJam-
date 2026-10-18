@@ -3,6 +3,9 @@ using UnityEngine;
 
 public sealed partial class MazeBetaGame
 {
+    [Header("Senora sentada con silla (conjunto reemplazable)")]
+    [Tooltip("Prefab del conjunto. Déjalo vacío para usar por separado Seated Woman Prefab y Chair Prefab.")]
+    public GameObject seatedResidentPrefab;
     List<int> residentCells = new List<int>();
     readonly List<BoxCollider> residentZones = new List<BoxCollider>();
     public IReadOnlyList<int> ResidentCells => residentCells;
@@ -18,29 +21,39 @@ public sealed partial class MazeBetaGame
             root.SetParent(generated, false);
             float inset = Mathf.Max(0, cellSize * 0.5f - WallThickness * 0.5f - 0.43f);
             root.position = CellPosition(cell) + Direction(side) * inset;
-            if (EnvChair)
+            if (EnvSeatedResident)
             {
-                var chair = new GameObject("Silla").transform; chair.SetParent(root,false);
-                // The supplied chair faces -Z. At 0.82m overall height its
-                // seat is about 0.50m high, matching the seated model's pelvis.
-                FitVisual(EnvChair,chair,new Vector3(0.72f,0.82f,0.72f),true);
-                chair.localRotation = Quaternion.Euler(0,seatedChairYaw,0);
+                var resident = Instantiate(EnvSeatedResident, root);
+                resident.name = "Abuela con silla";
+                resident.transform.localPosition = Vector3.zero;
+                resident.transform.localRotation = Quaternion.identity;
             }
             else
             {
-                var seat = Cube("Asiento provisional",root,wallMaterial);
-                seat.transform.localPosition = new Vector3(0,0.44f,0);
-                seat.transform.localScale = new Vector3(0.55f,0.12f,0.55f);
-                var back = Cube("Respaldo provisional",root,wallMaterial);
-                back.transform.localPosition = new Vector3(0,0.74f,-0.25f);
-                back.transform.localScale = new Vector3(0.55f,0.65f,0.08f);
-            }
-            if (EnvSeatedWoman)
-            {
-                var woman = new GameObject("Senora - pose sentada").transform; woman.SetParent(root,false);
-                FitVisual(EnvSeatedWoman,woman,new Vector3(0.78f,1.34f,0.9f),true);
-                woman.localRotation = Quaternion.Euler(0,seatedWomanYaw,0);
-                woman.localPosition = seatedWomanOffset;
+                if (EnvChair)
+                {
+                    var chair = new GameObject("Silla").transform; chair.SetParent(root,false);
+                    // The supplied chair faces -Z. At 0.82m overall height its
+                    // seat is about 0.50m high, matching the seated model's pelvis.
+                    FitVisual(EnvChair,chair,new Vector3(0.72f,0.82f,0.72f),true);
+                    chair.localRotation = Quaternion.Euler(0,seatedChairYaw,0);
+                }
+                else
+                {
+                    var seat = Cube("Asiento provisional",root,wallMaterial);
+                    seat.transform.localPosition = new Vector3(0,0.44f,0);
+                    seat.transform.localScale = new Vector3(0.55f,0.12f,0.55f);
+                    var back = Cube("Respaldo provisional",root,wallMaterial);
+                    back.transform.localPosition = new Vector3(0,0.74f,-0.25f);
+                    back.transform.localScale = new Vector3(0.55f,0.65f,0.08f);
+                }
+                if (EnvSeatedWoman)
+                {
+                    var woman = new GameObject("Senora - pose sentada").transform; woman.SetParent(root,false);
+                    FitVisual(EnvSeatedWoman,woman,new Vector3(0.78f,1.34f,0.9f),true);
+                    woman.localRotation = Quaternion.Euler(0,seatedWomanYaw,0);
+                    woman.localPosition = seatedWomanOffset;
+                }
             }
             var body = root.gameObject.AddComponent<BoxCollider>();
             body.center = new Vector3(0,0.55f,-0.04f);

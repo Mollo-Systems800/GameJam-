@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 14300001}
   - component: {fileID: 11400001}
   - component: {fileID: 11400002}
+  - component: {fileID: 147701094664722606}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -50,7 +51,6 @@ CharacterController:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -86,6 +86,54 @@ MonoBehaviour:
   rollCooldown: 0.6
   visual: {fileID: 400002}
   view: {fileID: 0}
+--- !u!114 &11400002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40a5cb35c325487197c5236ab2cc1ac9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerLimbAnimator
+  strideLength: 1.8
+  legSwing: 28
+  armSwing: 24
+  blendSpeed: 12
+  idleMotion: {fileID: 4900000, guid: d4d031ac91f84425b8bcb7ea1001db69, type: 3}
+  walkMotion: {fileID: 4900000, guid: d89703a9a64c4399969ae703757583cd, type: 3}
+  runMotion: {fileID: 4900000, guid: 8309b486acb54bc28db415d0f5798cbc, type: 3}
+  jumpMotion: {fileID: 4900000, guid: 86c529fb84904df5bfc8b0051502780c, type: 3}
+  rollMotion: {fileID: 4900000, guid: a32b7a630efd4785b0a04be7f05b3ca2, type: 3}
+  runReferenceSpeed: 5.4
+  idleStrength: 1
+  motionStrength: 0.65
+  sprintMotionStrength: 1
+  jumpMotionStrength: 0.95
+  walkMotionStrength: 0.85
+  walkCycleDistance: 3.2
+  torsoTwist: 6
+  runningLean: 1
+  maxGroundedTorsoTilt: 4
+  restPostureStrength: 1
+  hipSway: 0.003
+  breathingStrength: 1
+  secondaryMotion: 1
+  actionBlendTime: 0.16
+--- !u!114 &147701094664722606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d727f95cc95001b46bded5fb1652a0fc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAudio
 --- !u!1 &100002
 GameObject:
   m_ObjectHideFlags: 0
@@ -115,7 +163,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 400003}
+  - {fileID: 543450653642063946}
   m_Father: {fileID: 400001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &100100001
@@ -125,51 +173,58 @@ PrefabInstance:
   m_Modification:
     serializedVersion: 3
     m_TransformParent: {fileID: 400002}
-    m_Modifications: []
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+      propertyPath: m_Name
+      value: rigAnimated
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
---- !u!4 &400003 stripped
+--- !u!4 &543450653642063946 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: 400000, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ede64cc80f08a045aedc79b497b18e7, type: 3}
   m_PrefabInstance: {fileID: 100100001}
   m_PrefabAsset: {fileID: 0}
-
---- !u!114 &11400002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 100001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 40a5cb35c325487197c5236ab2cc1ac9, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerLimbAnimator
-  strideLength: 1.8
-  legSwing: 28
-  armSwing: 24
-  blendSpeed: 12
-  idleMotion: {fileID: 4900000, guid: d4d031ac91f84425b8bcb7ea1001db69, type: 3}
-  idleStrength: 1
-  walkMotion: {fileID: 4900000, guid: d89703a9a64c4399969ae703757583cd, type: 3}
-  walkMotionStrength: 0.85
-  walkCycleDistance: 3.2
-  motionStrength: 0.65
-  sprintMotionStrength: 1
-  jumpMotionStrength: 0.95
-  torsoTwist: 6
-  runningLean: 1
-  maxGroundedTorsoTilt: 4
-  restPostureStrength: 1
-  hipSway: 0.003
-  breathingStrength: 1
-  secondaryMotion: 1
-  actionBlendTime: 0.16
-  runMotion: {fileID: 4900000, guid: 8309b486acb54bc28db415d0f5798cbc, type: 3}
-  jumpMotion: {fileID: 4900000, guid: 86c529fb84904df5bfc8b0051502780c, type: 3}
-  rollMotion: {fileID: 4900000, guid: a32b7a630efd4785b0a04be7f05b3ca2, type: 3}
-  runReferenceSpeed: 5.4

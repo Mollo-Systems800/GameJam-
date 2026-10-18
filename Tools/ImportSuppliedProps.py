@@ -148,7 +148,9 @@ def convert_glb(source):
         flat = [p[0] + base for p in indices]
         assert len(flat) % 3 == 0
         for n in range(0, len(flat), 3):
-            lines.append('f ' + ' '.join(f'{j}/{j}/{j}' for j in flat[n:n + 3]))
+            # This supplied GLB's winding opposes its normals; Unity otherwise
+            # renders the inside of the face, clothes and fingers.
+            lines.append('f ' + ' '.join(f'{j}/{j}/{j}' for j in (flat[n], flat[n + 2], flat[n + 1])))
         base += len(verts)
         triangles += len(flat) // 3
     model = DEST / 'Anderson/Anderson.obj'

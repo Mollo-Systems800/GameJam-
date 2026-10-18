@@ -1,0 +1,260 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 901a7fe4f9fe321439fd65df4f770a5a, type: 3}
+  m_Name: MazeAudioLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::MazeAudioLibrary
+  menuMusic: {fileID: 8300000, guid: f7db4af44c07bca4cac3765937c5353a, type: 3}
+  normalMusic: {fileID: 8300000, guid: e152235ce10572940aabdab78ae2aef0, type: 3}
+  threatMusic: {fileID: 8300000, guid: b30913365792a1447ab923607f3b77fd, type: 3}
+  introMusic: {fileID: 8300000, guid: dae8eee996e566b46bb1aeff414aed49, type: 3}
+  areaMusic: {fileID: 8300000, guid: c036f22bbbe8685488366d142e4fa0a6, type: 3}
+  victoryMusic: {fileID: 8300000, guid: 128e47038bc2414469ea22e2a85af445, type: 3}
+  bossDefeatMusic: {fileID: 8300000, guid: fd4fb913504b2274fba7f8c5b88fc1dd, type: 3}
+  healthDefeatMusic: {fileID: 8300000, guid: 600f1d2cedddf3b47b826d3bf9ca6428, type: 3}
+  cues:
+  - sound: 0
+    variations:
+    - {fileID: 8300000, guid: 27c877b1e814f0744b610594d8af5e4f, type: 3}
+    - {fileID: 8300000, guid: 2e02d006026f9eb4a963e71e6f893fbb, type: 3}
+    - {fileID: 8300000, guid: e5867b1526a23f346bca874ae7a93a69, type: 3}
+    - {fileID: 8300000, guid: 9cf0a237dd81cae4a9ec2606140a49fe, type: 3}
+    volume: 0.4
+    pitchVariation: 0.09
+    minimumInterval: 0.07
+  - sound: 1
+    variations:
+    - {fileID: 8300000, guid: 4fe8f47db80cc2f439e464654644b8e0, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 2
+    variations:
+    - {fileID: 8300000, guid: 3255e15c4f96e8c4494a7594daa42afb, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 3
+    variations:
+    - {fileID: 8300000, guid: e3c3741e1d9d93343b7e7cbec7118c68, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 4
+    variations:
+    - {fileID: 8300000, guid: 8b9aae467fc32ca41bce860e093d96b0, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 5
+    variations:
+    - {fileID: 8300000, guid: 9c82f455d337af2428533a35bbc37b6e, type: 3}
+    volume: 0.22
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 6
+    variations:
+    - {fileID: 8300000, guid: dd480f1218580244ba8c4634ea499899, type: 3}
+    volume: 0.22
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 7
+    variations:
+    - {fileID: 8300000, guid: 9e36da3eb73307c429e343d7ff4d70b7, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 8
+    variations:
+    - {fileID: 8300000, guid: 38bcc7df8ba8cd54db33c2d6457f6173, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.35
+  - sound: 9
+    variations:
+    - {fileID: 8300000, guid: 2f806909f946a204986d57495b6cef52, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 10
+    variations:
+    - {fileID: 8300000, guid: 46f612bde5607e544920325cf320ca45, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 11
+    variations:
+    - {fileID: 8300000, guid: 44f26b97149b1ab4ea5a6958c68a3415, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 12
+    variations:
+    - {fileID: 8300000, guid: 75b33c48d72e49949b0318a95cb88c05, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 13
+    variations:
+    - {fileID: 8300000, guid: 4c71926f635bb9f4faa2702424d9283c, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 14
+    variations:
+    - {fileID: 8300000, guid: a6e893ab1ae777047a78f425ade4b92a, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 15
+    variations:
+    - {fileID: 8300000, guid: 4979ca86166db18468e3d8ff07a9baa8, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 16
+    variations:
+    - {fileID: 8300000, guid: b0b1be66b4c3a4941ae98f36a0d4eb87, type: 3}
+    volume: 0.18
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 17
+    variations:
+    - {fileID: 8300000, guid: 99fea608f6a47e149bf5e9aca5827560, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 18
+    variations:
+    - {fileID: 8300000, guid: 58a4002c7a71be942ba16d12165e493f, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 19
+    variations:
+    - {fileID: 8300000, guid: 8982122e9e3708347b4f75b5aa8f13d6, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 20
+    variations:
+    - {fileID: 8300000, guid: c7627240a07f42c4d8beff16f6339760, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 21
+    variations:
+    - {fileID: 8300000, guid: 39b9f5aad520e484bb031890b431d3d3, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 22
+    variations:
+    - {fileID: 8300000, guid: d00f0cfbb256bde4db7038ebd158ba7f, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 23
+    variations:
+    - {fileID: 8300000, guid: 5cc5938d94ae8284e80741123a9b1097, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 24
+    variations:
+    - {fileID: 8300000, guid: 21e3250b8e6c7d14b8831c8f89a16c35, type: 3}
+    volume: 0.3
+    pitchVariation: 0.035
+    minimumInterval: 0.35
+  - sound: 25
+    variations:
+    - {fileID: 8300000, guid: fd14d3138e52afb4bb4af864e5b54050, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 26
+    variations:
+    - {fileID: 8300000, guid: 19935642a522ad442bca32a8bcb12564, type: 3}
+    volume: 0.3
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 27
+    variations:
+    - {fileID: 8300000, guid: 1a4b1d9554cadf841b7695685235285a, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 28
+    variations:
+    - {fileID: 8300000, guid: e7b330bc0fde90e428e67c2f4cf2e6a5, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 29
+    variations:
+    - {fileID: 8300000, guid: f6da09b4f154c224082350ea85b263a2, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 30
+    variations:
+    - {fileID: 8300000, guid: f792b1448ec9fcc43bb3dff383f8a0ad, type: 3}
+    volume: 0.6
+    pitchVariation: 0
+    minimumInterval: 0.07
+  - sound: 31
+    variations:
+    - {fileID: 8300000, guid: 626ffa31314b2e14fbc62455e2a86f15, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 32
+    variations:
+    - {fileID: 8300000, guid: 0805da64e4165cc43a63ab15cb2d29f2, type: 3}
+    volume: 0.6
+    pitchVariation: 0
+    minimumInterval: 0.07
+  - sound: 33
+    variations:
+    - {fileID: 8300000, guid: 6c86dcf87fa2c4d4a842548af5bcb0d2, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 34
+    variations:
+    - {fileID: 8300000, guid: 2797b8f43594d2843a59a59e6c4cc3a9, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 35
+    variations:
+    - {fileID: 8300000, guid: 4753f22e73eea8845becbbde7734f215, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 36
+    variations:
+    - {fileID: 8300000, guid: ffbde8b94b2bfa54c9b20b224147d72d, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 37
+    variations:
+    - {fileID: 8300000, guid: 18e36b7e98c265c468318e989fcc2ae1, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07
+  - sound: 38
+    variations:
+    - {fileID: 8300000, guid: 0945722477ba8134fb53a44758baccbd, type: 3}
+    volume: 0.6
+    pitchVariation: 0.035
+    minimumInterval: 0.07

@@ -10,6 +10,7 @@ public sealed class MazeAreaTheme
     public GameObject platformPrefab, jumpTakeoffPrefab, jumpLandingPrefab;
     public GameObject spikePrefab, spikeFloorPrefab;
     public GameObject chairPrefab, storePrefab;
+    public GameObject seatedResidentPrefab;
     [UnityEngine.Serialization.FormerlySerializedAs("shopkeeperPrefab")]
     public GameObject seatedWomanPrefab;
     public TextMesh worldLabelPrefab;
@@ -52,13 +53,16 @@ public sealed partial class MazeBetaGame
     GameObject EnvTakeoff => Pick(ActiveArea.jumpTakeoffPrefab, jumpTakeoffPrefab ? jumpTakeoffPrefab : EnvFloor);
     GameObject EnvLanding => Pick(ActiveArea.jumpLandingPrefab, jumpLandingPrefab ? jumpLandingPrefab : EnvFloor);
     GameObject EnvChair => Pick(ActiveArea.chairPrefab, chairPrefab);
+    GameObject EnvSeatedResident => Pick(ActiveArea.seatedResidentPrefab, seatedResidentPrefab);
     GameObject EnvSeatedWoman => Pick(ActiveArea.seatedWomanPrefab, seatedWomanPrefab);
     GameObject EnvStore => Pick(ActiveArea.storePrefab, storePrefab);
     TextMesh EnvLabel => ActiveArea.worldLabelPrefab ? ActiveArea.worldLabelPrefab : worldLabelPrefab;
 
-    public void StartCampaign(int newSeed, int firstLevel = 1, int? savedMazeSeed = null)
+    public void StartCampaign(int newSeed, int firstLevel = 1, int? savedMazeSeed = null, float seconds = 0, int completedLevels = 0, bool rankingEligible = true)
     {
         ResetDefeatCycle();
+        CampaignClock = new CampaignRunClock(firstLevel, seconds, completedLevels, rankingEligible);
+        pendingRecord = 0; recordKey = CampaignRanking.StorageKey; RecordFeedback = null;
         campaignSeed = newSeed;
         campaign = new MazeCampaignProgress(Mathf.Clamp(firstLevel, 1, MazeCampaignProgress.LevelCount) - 1);
         Begin(savedMazeSeed ?? MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
@@ -66,7 +70,7 @@ public sealed partial class MazeBetaGame
 
     public bool AdvanceLevel()
     {
-        if (!HasWon || !campaign.Advance()) return false;
+        if (IsCinematicPlaying || !HasWon || !campaign.Advance()) return false;
         ResetDefeatCycle();
         Begin(MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
         return true;

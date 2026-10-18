@@ -46,6 +46,7 @@ public sealed partial class MazeBetaGame
             if (nextSeed == ActiveSeed) nextSeed = unchecked(ActiveSeed + 1);
         }
         Begin(nextSeed);
+        if(regenerate)MazeAudioDirector.Play(MazeSound.NewMaze);
         RestartNotice = regenerate ? "Nuevo laberinto generado tras 2 derrotas."
             : "Segundo intento: el laberinto se mantiene. Otra derrota generará uno nuevo.";
         restartNoticeUntil = Time.unscaledTime + 6;

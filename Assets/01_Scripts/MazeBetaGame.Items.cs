@@ -56,6 +56,7 @@ public sealed partial class MazeBetaGame
     {
         if (!IsPlaying || !item) return;
         Progress.ApplyItem(item.itemType, item.duration, item.effectValue);
+        MazeAudioDirector.Item(item.itemType);
         ApplyProgressToPlayer();
     }
 

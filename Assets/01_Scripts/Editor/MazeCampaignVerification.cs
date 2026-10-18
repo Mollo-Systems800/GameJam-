@@ -38,6 +38,7 @@ public static class MazeCampaignVerification
                 game = UnityEngine.Object.FindAnyObjectByType<MazeBetaGame>();
                 if (!game || !game.Player) return;
                 game.recordResults = false;
+                game.playOutcomeCinematics = false; // Story timing has its own native verification.
                 game.bossGracePeriod = 10000;
                 game.spadeCount = game.turretCount = 0;
                 game.StartCampaign(1729);

@@ -127,10 +127,10 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         Bone(PlayerRigBone.LeftShin, bones[2], centre, -0.10f, 0.26f);
         Bone(PlayerRigBone.RightThigh, bones[0], centre, 0.10f, 0.48f);
         Bone(PlayerRigBone.RightShin, bones[4], centre, 0.10f, 0.26f);
-        Bone(PlayerRigBone.LeftArm, bones[1], centre, -0.17f, 0.77f);
-        Bone(PlayerRigBone.LeftForearm, bones[6], centre, -0.21f, 0.60f);
-        Bone(PlayerRigBone.RightArm, bones[1], centre, 0.17f, 0.77f);
-        Bone(PlayerRigBone.RightForearm, bones[8], centre, 0.21f, 0.60f);
+        Bone(PlayerRigBone.LeftArm, bones[1], centre, -0.115f, 0.73f);
+        Bone(PlayerRigBone.LeftForearm, bones[6], centre, -0.18f, 0.60f);
+        Bone(PlayerRigBone.RightArm, bones[1], centre, 0.115f, 0.73f);
+        Bone(PlayerRigBone.RightForearm, bones[8], centre, 0.18f, 0.60f);
         hipsRest = bones[0].localPosition;
         chestRest = bones[1].localPosition;
         previousPosition = player.transform.position;
@@ -174,6 +174,8 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
 
     void Skin(MeshFilter filter, Bounds bounds)
     {
+        if (PlayerRestPosture.IsDuplicateAccessory(filter.name))
+        { filter.GetComponent<MeshRenderer>().enabled = false; return; }
         Mesh mesh = Instantiate(filter.sharedMesh);
         mesh.name = filter.sharedMesh.name + " - Animated Instance";
         var weights = new BoneWeight[mesh.vertexCount];
@@ -181,13 +183,16 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         var sourcePoints = new Vector3[vertices.Length];
         Matrix4x4 toCharacter = player.visual.worldToLocalMatrix * filter.transform.localToWorldMatrix;
         Matrix4x4 normalMatrix = toCharacter.inverse.transpose;
+        for (int i = 0; i < vertices.Length; i++) sourcePoints[i] = toCharacter.MultiplyPoint3x4(vertices[i]);
+        var armRegions = filter.name == "Cube.001" || filter.name == "Cube.007"
+            ? PlayerMeshAnatomy.ArmRegions(sourcePoints, mesh.triangles, bounds) : null;
         for (int i = 0; i < vertices.Length; i++)
         {
-            Vector3 point = toCharacter.MultiplyPoint3x4(vertices[i]);
-            sourcePoints[i] = point;
-            vertices[i] = restPosture.Point(point, filter.name);
+            Vector3 point = sourcePoints[i];
+            float anatomicalArm = armRegions == null ? -1 : armRegions[i];
+            vertices[i] = restPosture.Point(point, filter.name, anatomicalArm);
             var influence = PlayerRigWeights.SampleMesh(filter.name, (point.x - bounds.center.x) / bounds.size.y,
-                (point.y - bounds.min.y) / bounds.size.y);
+                (point.y - bounds.min.y) / bounds.size.y, restPosture.ArmForward(point), anatomicalArm);
             weights[i] = new BoneWeight { boneIndex0 = influence.A, boneIndex1 = influence.B, boneIndex2 = influence.C, boneIndex3 = influence.D,
                 weight0 = influence.WA, weight1 = influence.WB, weight2 = influence.WC, weight3 = influence.WD };
         }
@@ -197,14 +202,14 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         Vector3[] normals = mesh.normals;
         for (int i = 0; i < normals.Length; i++)
             normals[i] = restPosture.Normal(sourcePoints[i],
-                normalMatrix.MultiplyVector(normals[i]).normalized, filter.name);
+                normalMatrix.MultiplyVector(normals[i]).normalized, filter.name, armRegions == null ? -1 : armRegions[i]);
         mesh.normals = normals;
         Vector4[] tangents = mesh.tangents;
         float sign = toCharacter.determinant < 0 ? -1 : 1;
         for (int i = 0; i < tangents.Length; i++)
         {
             Vector3 tangent = toCharacter.MultiplyVector(new Vector3(tangents[i].x, tangents[i].y, tangents[i].z)).normalized;
-            tangent = restPosture.Tangent(sourcePoints[i], tangent, filter.name);
+            tangent = restPosture.Tangent(sourcePoints[i], tangent, filter.name, armRegions == null ? -1 : armRegions[i]);
             tangents[i] = new Vector4(tangent.x, tangent.y, tangent.z, tangents[i].w * sign);
         }
         mesh.tangents = tangents;
@@ -248,17 +253,20 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         generatedRenderers.Add(item);
     }
 
+    public bool CinematicIdle { get; set; }
+    public PlayerStoryPose StoryPose { get; set; }
+    public float StoryPoseWeight { get; set; }
     void LateUpdate()
     {
-        if (!IsReady || !player.CanMove) return;
+        if (!IsReady || (!player.CanMove && !CinematicIdle)) return;
         float dt = Time.deltaTime;
         lifeTime += dt;
-        unsupportedTime = player.IsGrounded ? 0 : unsupportedTime + dt;
-        bool grounded = player.IsGrounded || (player.VerticalVelocity <= 0 && unsupportedTime < 0.1f);
-        float target = grounded ? Mathf.Clamp01(player.PlanarSpeed / Mathf.Max(0.1f, player.baseSpeed)) : 0;
+        unsupportedTime = CinematicIdle || player.IsGrounded ? 0 : unsupportedTime + dt;
+        bool grounded = CinematicIdle || player.IsGrounded || (player.VerticalVelocity <= 0 && unsupportedTime < 0.1f);
+        float target = !CinematicIdle && grounded ? Mathf.Clamp01(player.PlanarSpeed / Mathf.Max(0.1f, player.baseSpeed)) : 0;
         float blend = 1 - Mathf.Exp(-blendSpeed * dt);
         float rollProgress = player.RollProgress;
-        float rollTarget = player.IsRolling
+        float rollTarget = !CinematicIdle && player.IsRolling
             ? Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, 0.18f, rollProgress))
                 * (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.78f, 1, rollProgress))) : 0;
         rollWeight = Mathf.Lerp(rollWeight, rollTarget, 1 - Mathf.Exp(-dt * 30));
@@ -266,7 +274,7 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         stride = Mathf.Lerp(stride, target, blend);
         // Use the controller's sprint action, not an absolute speed threshold:
         // fatigue can make sprinting slower than the original walking speed.
-        float sprintTarget = player.IsSprinting ? 1 : 0;
+        float sprintTarget = !CinematicIdle && player.IsSprinting ? 1 : 0;
         sprintWeight = Mathf.Lerp(sprintWeight, sprintTarget, blend);
         idleWeight = grounded ? (1 - stride) * idleStrength : 0;
         airborne = !grounded;
@@ -340,6 +348,12 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         bones[1].localPosition = Vector3.Lerp(bones[1].localPosition,
             chestRest + Vector3.up * breath * characterHeight * (player.IsRolling ? 0.0002f : 0.0012f), blend);
         ApplyRootRoll(blend);
+        if(CinematicIdle)
+        {
+            // Suspend an interrupted roll and keep feet on the floor during story gestures.
+            rig.localRotation=Quaternion.identity;
+            rig.localPosition=Vector3.up*(StoryPose==PlayerStoryPose.Exhausted?-.12f*StoryPoseWeight:0);
+        }
         wasGrounded = grounded;
     }
 
@@ -505,8 +519,39 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             Vector3 hinge = Vector3.Cross(Vector3.forward, joint.localPosition).normalized;
             target = ElbowHinge(target, hinge);
         }
+        if(CinematicIdle && StoryPose!=PlayerStoryPose.Neutral)
+            target=Quaternion.Slerp(target,StoryJointPose(bone),Mathf.Clamp01(StoryPoseWeight));
         float follow = Mathf.Lerp(bone == PlayerRigBone.Spine ? 0.7f : bone == PlayerRigBone.Chest ? 0.85f : 1, 2.5f, rollWeight);
         joint.localRotation = Quaternion.Slerp(joint.localRotation, target, 1 - Mathf.Pow(1 - blend, follow));
+    }
+
+    Quaternion StoryJointPose(PlayerRigBone bone)
+    {
+        bool arm=bone==PlayerRigBone.LeftArm||bone==PlayerRigBone.RightArm;
+        bool elbow=bone==PlayerRigBone.LeftForearm||bone==PlayerRigBone.RightForearm;
+        float side=bone==PlayerRigBone.LeftArm?-1:1;
+        if(elbow)return Quaternion.AngleAxis(StoryPose==PlayerStoryPose.Fear?-25:-12,
+            Vector3.Cross(Vector3.forward,bones[(int)bone].localPosition).normalized);
+        if(StoryPose==PlayerStoryPose.Fear)
+        {
+            if(arm)return Quaternion.Euler(-48+Mathf.Sin(lifeTime*6)*1.5f,0,side*12);
+            if(bone==PlayerRigBone.Chest)return Quaternion.Euler(-5+breath,0,0);
+            if(bone==PlayerRigBone.Spine)return Quaternion.Euler(-3,0,0);
+        }
+        if(StoryPose==PlayerStoryPose.Exhausted)
+        {
+            if(arm)return Quaternion.Euler(-18+breath*1.5f,0,side*3);
+            if(bone==PlayerRigBone.Spine)return Quaternion.Euler(7+breath,0,0);
+            if(bone==PlayerRigBone.Chest)return Quaternion.Euler(10+breath*1.5f,0,2);
+            if(bone==PlayerRigBone.LeftThigh||bone==PlayerRigBone.RightThigh)return Quaternion.Euler(-22,0,0);
+            if(bone==PlayerRigBone.LeftShin||bone==PlayerRigBone.RightShin)return Quaternion.Euler(30,0,0);
+        }
+        if(StoryPose==PlayerStoryPose.Relief)
+        {
+            if(arm)return Quaternion.Euler(-12+breath,0,side*17);
+            if(bone==PlayerRigBone.Chest)return Quaternion.Euler(-2+breath*1.5f,Mathf.Sin(lifeTime)*2,0);
+        }
+        return Quaternion.identity;
     }
 
     Quaternion TuckedRollPose(PlayerRigBone bone)

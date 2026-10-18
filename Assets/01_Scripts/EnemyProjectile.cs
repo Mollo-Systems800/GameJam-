@@ -15,6 +15,7 @@ public sealed class EnemyProjectile : MonoBehaviour
         game = owner;
         velocity = direction.normalized * Mathf.Max(0.1f, speed);
         source = shooter;
+        transform.rotation=Quaternion.LookRotation(velocity);
         damage = hitDamage;
         if (GetComponentsInChildren<Renderer>().Length == 0)
             game.CreatePrimitiveVisual(PrimitiveType.Sphere, transform, Vector3.one * radius * 2, Vector3.zero, false,
@@ -31,7 +32,8 @@ public sealed class EnemyProjectile : MonoBehaviour
         {
             if (collider.transform.IsChildOf(transform)) continue;
             if (source && collider.transform.IsChildOf(source)) continue;
-            if (collider.GetComponentInParent<Player>() == game.Player) game.HitPlayer(damage, "TE ALCANZO UNA TORRETA");
+            if (collider.GetComponentInParent<Player>() == game.Player) game.HitPlayer(damage, "TE ALCANZO UN FORMULARIO DE RR. HH.");
+            MazeAudioDirector.Play(MazeSound.PaperImpact,transform.position,.45f);
             Destroy(gameObject);
             return;
         }
@@ -48,11 +50,13 @@ public sealed class EnemyProjectile : MonoBehaviour
         }
         if (first.HasValue)
         {
+            MazeAudioDirector.Play(MazeSound.PaperImpact,first.Value.point,.45f);
             if (first.Value.collider.GetComponentInParent<Player>() == game.Player)
-                game.HitPlayer(damage, "TE ALCANZO UNA TORRETA");
+                game.HitPlayer(damage, "TE ALCANZO UN FORMULARIO DE RR. HH.");
             Destroy(gameObject);
             return;
         }
         transform.position += step;
+        transform.Rotate(Vector3.forward,Time.deltaTime*110,Space.Self);
     }
 }

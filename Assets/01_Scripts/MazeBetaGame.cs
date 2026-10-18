@@ -57,12 +57,14 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     public MazeGrid Grid { get; private set; }
     public Player Player { get; private set; }
     public MazeBoss Boss { get; private set; }
-    public bool IsPlaying => running && !paused && !ShopOpen;
+    public bool IsPlaying => running && !paused && !ShopOpen && !IsCinematicPlaying;
     public bool HasWon { get; private set; }
     public float Elapsed => Progress.Elapsed;
     public int ActiveSeed { get; private set; }
     public IReadOnlyList<int> ObstacleCells => obstacleCells;
     public string DefeatReason { get; private set; }
+    public bool DefeatedByBoss { get; private set; }
+    public MazeAudioSettingsPanel AudioSettings { get; set; }
 
     Transform generated;
     Camera view;
@@ -96,10 +98,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         exitMaterial = MakeMaterial(new Color(0.15f, 0.85f, 0.45f));
         platformMaterial = MakeMaterial(new Color(1f, 0.65f, 0.1f));
         InitializeRunFeatures();
-        if (MazeCampaignSave.ConsumeLaunch(out var launch))
+        if (MazeCampaignSave.ConsumeLaunch(out var launch, out bool newCampaign))
         {
             checkpointEnabled = true;
-            StartCampaign(launch.CampaignSeed, launch.Level, launch.MazeSeed);
+            StartCampaign(launch.CampaignSeed, launch.Level, launch.MazeSeed, launch.Seconds, launch.CompletedLevels, launch.RankingEligible);
+            if (newCampaign) PlayNewGameIntro();
         }
         else
         {
@@ -112,6 +115,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     public void Begin(int newSeed)
     {
+        if (intro && intro.IsActive) intro.Cancel();
         if (newSeed != ActiveSeed) LossesOnCurrentMaze = 0;
         RetrySecondsRemaining = 0;
         WaitingForRetry = false;
@@ -136,12 +140,15 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             if (Grid.IsParkourPit(cell)) obstacleCells.Add(cell);
         generated = new GameObject("Beta Generated Maze").transform;
         generated.SetParent(transform, false);
+        if (wallTopJunctions == null) wallTopJunctions = new HashSet<Vector2Int>();
+        else wallTopJunctions.Clear();
         Progress = new RunProgress();
         ShopOpen = false;
         pausedBeforeShop = false;
         paused = false;
         HasWon = false;
-        DefeatReason = "EL EMPLEO TE ATRAPO";
+        DefeatReason = "SIN VIDA";
+        DefeatedByBoss = false;
         running = true;
 
         for (int cell = 0; cell < Grid.Count; cell++)
@@ -162,6 +169,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
                     position + direction * cellSize * 0.5f,
                     new Vector3(cellSize + WallThickness, Mathf.Max(2, wallHeight), WallThickness), true);
                 wall.rotation = Quaternion.Euler(0, d % 2 == 0 ? 0 : 90, 0);
+                BuildWallCoping(wall);
             }
         }
 
@@ -174,7 +182,6 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             var marker = Cube("Exit marker", generated, exitMaterial, EnvExitMarker);
             marker.transform.position = exitPosition + Vector3.up * 0.025f;
             marker.transform.localScale = new Vector3(cellSize * 0.8f, 0.05f, cellSize * 0.8f);
-            Label("SALIDA", exitPosition + Vector3.up * 1.7f, generated, Color.green, 0.12f);
         }
 
         if (!playerPrefab || !playerPrefab.GetComponent<Player>())
@@ -213,25 +220,14 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         bool hasBossVisual = bossObject.GetComponentsInChildren<Renderer>().Length > 0;
         if (!hasBossVisual && bossVisualPrefab)
         {
-            var bossVisual = FitVisual(bossVisualPrefab, bossObject.transform, new Vector3(1.2f, 1.8f, 0.2f), true);
-            bool missingTexture = false;
-            foreach (var renderer in bossVisual.GetComponentsInChildren<Renderer>())
-                foreach (var material in renderer.sharedMaterials)
-                    missingTexture |= !material || !material.mainTexture;
-            if (missingTexture)
-            {
-                foreach (var renderer in bossVisual.GetComponentsInChildren<Renderer>()) renderer.sharedMaterial = paperMaterial;
-                Label("SE BUSCA\nEMPLEO", bossObject.transform.position + Vector3.up * 1.2f,
-                    bossObject.transform, Color.black, 0.07f);
-            }
+            float playerHeight = Player.GetComponent<CharacterController>().height;
+            FitVisual(bossVisualPrefab, bossObject.transform, new Vector3(playerHeight * .8f, playerHeight, playerHeight * .1f), true);
         }
         else if (!hasBossVisual)
         {
             var paper = Cube("Employment sheet", bossObject.transform, paperMaterial);
             paper.transform.localPosition = Vector3.up;
             paper.transform.localScale = new Vector3(1.2f, 1.8f, 0.12f);
-            Label("SE BUSCA\nEMPLEO", bossObject.transform.position + Vector3.up * 1.15f,
-                bossObject.transform, Color.black, 0.07f);
         }
 
         var candidates = new List<int>();
@@ -248,13 +244,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             int cell = candidates[i];
             var pickup = Spawn(pillPrefab, "Antidepresivos " + cell, CellPosition(cell) + Vector3.up * 0.65f);
             bool hasPillVisual = pickup.GetComponentsInChildren<Renderer>().Length > 0;
-            if (!hasPillVisual && pillVisualPrefab) FitVisual(pillVisualPrefab, pickup.transform, new Vector3(0.65f, 0.4f, 0.35f), true);
+            if (!hasPillVisual && pillVisualPrefab) FitVisual(pillVisualPrefab, pickup.transform, new Vector3(0.75f, 0.46f, 0.18f), true);
             else if (!hasPillVisual)
             {
                 var box = Cube("Pill box", pickup.transform, pillMaterial);
                 box.transform.localScale = new Vector3(0.65f, 0.4f, 0.35f);
-                Label("PASTILLAS", pickup.transform.position + Vector3.up * 0.35f,
-                    pickup.transform, Color.white, 0.035f);
             }
             var pill = pickup.GetComponent<PillPickup>();
             if (!pill) pill = pickup.AddComponent<PillPickup>();
@@ -268,8 +262,9 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         followCamera.mouseSensitivity = mouseSensitivity;
         followCamera.fieldOfView = cameraFieldOfView;
         followCamera.Initialize(this, Player);
-        if (checkpointEnabled && recordResults)
-            MazeCampaignSave.Store(campaignSeed, CurrentLevelIndex + 1, ActiveSeed);
+        BuildNightLighting();
+        SaveCampaignCheckpoint();
+        MazeAudioDirector.LevelStarted(this);
     }
 
     public Vector3 CellPosition(int cell) => new Vector3(cell % Grid.Width * cellSize, 0, cell / Grid.Width * cellSize);
@@ -283,6 +278,12 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     void Update()
     {
+        if (IsCinematicPlaying) return;
+        if(AudioSettings&&AudioSettings.IsOpen)
+        {
+            if(Keyboard.current!=null&&Keyboard.current.escapeKey.wasPressedThisFrame)AudioSettings.Close();
+            return;
+        }
         TickDefeatRestart();
         var keyboard = Keyboard.current;
         if (running && ((keyboard != null && keyboard.bKey.wasPressedThisFrame)
@@ -294,6 +295,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         }
         if (!IsPlaying) return;
         Progress.Advance(Time.deltaTime);
+        CampaignClock.Advance(Time.deltaTime);
         Player.SpeedMultiplier = Progress.SpeedMultiplier;
         if (CheckSpikeContact()) return;
         if (Player.transform.position.y < fallDeathHeight)
@@ -330,15 +332,18 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         Boss.IsActive = false;
         if (won)
         {
+            FinishCampaignLevel();
             RecordWin();
             if (checkpointEnabled && recordResults)
             {
                 if (CampaignComplete) MazeCampaignSave.Complete();
-                else MazeCampaignSave.Store(campaignSeed, CurrentLevelIndex + 2,
-                    MazeCampaignProgress.SeedForLevel(campaignSeed, CurrentLevelIndex + 1));
+                else SaveCampaignCheckpoint();
             }
         }
-        else ScheduleDefeatRestart();
+        else { ScheduleDefeatRestart(); SaveCampaignCheckpoint(); }
+        MazeAudioDirector.Play(won ? (CampaignComplete?MazeSound.Victory:CurrentLevelInArea==2?MazeSound.AreaWin:MazeSound.LevelWin)
+            : DefeatedByBoss?MazeSound.DefeatBoss:MazeSound.DefeatHealth);
+        PlayOutcomeCinematic();
     }
 
     Transform Module(GameObject prefab, string objectName, Vector3 position, Vector3 size, bool wall)
@@ -367,9 +372,6 @@ public sealed partial class MazeBetaGame : MonoBehaviour
                 core.transform.localPosition = Vector3.up * size.y * 0.5f;
                 core.transform.localScale = new Vector3(size.x, size.y, size.z * 0.8f);
             }
-            var cap = Cube("Wall top cap", root, wallMaterial, EnvCap);
-            cap.transform.localPosition = Vector3.up * (size.y - 0.07f);
-            cap.transform.localScale = new Vector3(size.x, 0.14f, size.z);
         }
         // Stable collision independent of the imported mesh pivot and zero-thickness kit floors.
         var collider = root.gameObject.AddComponent<BoxCollider>();
@@ -390,7 +392,6 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         ParkourModule(EnvTakeoff, "Jump takeoff " + cell, centre - axis * (cellSize - lip) * 0.5f, lipSize);
         ParkourModule(EnvLanding, "Jump landing " + cell, centre + axis * (cellSize - lip) * 0.5f, lipSize);
         BuildSpikeBed(centre, vertical, cellSize, "Jump spikes " + cell);
-        Label("SALTA", centre + Vector3.up * 1.5f, generated, new Color(1, 0.75f, 0.2f), 0.08f);
     }
 
     public static GameObject FitVisual(GameObject prefab, Transform root, Vector3 size, bool uniform)

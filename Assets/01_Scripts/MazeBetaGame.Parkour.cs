@@ -49,8 +49,6 @@ public sealed partial class MazeBetaGame
             parkourPlatforms.Add(platform.GetComponent<BoxCollider>());
         }
         BuildSpikeBed(start + axis * length * 0.5f, vertical, length, "Parkour spike bed");
-        Label("PARKOUR\nESPACIO PARA SALTAR", CellPosition(Grid.ParkourCells[0]) + Vector3.up * 1.6f,
-            generated, new Color(1, 0.75f, 0.2f), 0.06f);
     }
 
     Transform ParkourModule(GameObject prefab, string name, Vector3 position, Vector3 size)

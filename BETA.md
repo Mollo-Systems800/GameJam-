@@ -244,3 +244,9 @@ La integración resolvió marcadores de fusión que impedían compilar los scrip
 GameJam > Configurar menu en Inicio rehace el diseño. GameJam > Verificar menu de inicio prueba nueva partida, checkpoints y navegación, conservando/restaurando las preferencias del jugador. Resultado: Logs/startup-playmode-result.txt.
 
 Resultado final: PASS en la instancia abierta de Unity para nueva partida, continuar por nivel/semilla, confirmaciones, avance y fin de campaña, guardado de laberintos regenerados y regreso desde el Canvas. Se restauraron las preferencias originales tras la prueba. Menú y guía de controles revisados visualmente en Full HD; el botón Cómo jugar se comprobó también con el ratón.
+
+### Dirección gráfica: The Maze of work
+
+El menú de Inicio usa ahora una mesa de expedientes y papeles construidos con Canvas: solicitud numerada, sellos, nota adhesiva y plano de laberinto. Se retiró la ilustración cinematográfica de la escena; el archivo original se conserva en Assets. La foto del postulante renderiza el prefab real del jugador con cámara propia, postura corregida e iluminación aislada; no contiene controles ni física del jugador. El plano usa MazeGrid y se dibuja con geometría de UI. Los papeles, sellos y fibras también son geometría de Canvas, editable desde los scripts de diseño. StartupDossierSetup construye el diseño al configurar Inicio; StartupPaperButton aporta respuesta suave a selección y ratón. El nombre del producto es The Maze of work.
+
+Verificación del rediseño: PASS en Unity para título oficial, retrato del prefab real, renderizadores de papeles, plano nativo, nueva partida, continuar, confirmaciones y guardado/recuperación del laberinto. Guía y confirmación revisadas visualmente con clics reales; el progreso original se conservó. Resultado: Logs/startup-playmode-result.txt.

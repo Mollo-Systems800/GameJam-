@@ -27,6 +27,7 @@ public sealed class CoinPickup : MonoBehaviour
         if (game.WorldCell(game.Player.transform.position) == cell && game.TouchesPlayer(transform.position, 0.45f))
         {
             game.Progress.AddCoins(value);
+            MazeAudioDirector.Play(MazeSound.Coin);
             gameObject.SetActive(false);
             Destroy(gameObject);
         }

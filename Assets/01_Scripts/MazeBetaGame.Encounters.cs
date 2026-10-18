@@ -173,7 +173,7 @@ public sealed partial class MazeBetaGame
         {
             var assigned = renderer.sharedMaterials;
             for (int i = 0; i < assigned.Length; i++)
-                if (!assigned[i] || !assigned[i].mainTexture) assigned[i] = spadeMaterial;
+                if (!assigned[i] || assigned[i].shader.name == "Hidden/InternalErrorShader" || assigned[i].shader.name == "Standard") assigned[i] = spadeMaterial;
             renderer.sharedMaterials = assigned;
         }
     }
@@ -187,12 +187,19 @@ public sealed partial class MazeBetaGame
         return (axis - centre).sqrMagnitude <= (controller.radius + radius) * (controller.radius + radius);
     }
 
-    public bool HitPlayer(int damage, string reason)
+    public bool HitPlayer(int damage, string reason, bool fromBoss = false)
     {
-        if (!IsPlaying || !Progress.TakeDamage(damage)) return false;
+        if (!IsPlaying) return false;
+        if (!Progress.TakeDamage(damage))
+        {
+            if(damage>0 && Progress.ShieldSeconds>0)MazeAudioDirector.Play(MazeSound.ShieldHit);
+            return false;
+        }
+        MazeAudioDirector.Play(MazeSound.Hurt);
         if (Progress.Health == 0)
         {
             DefeatReason = reason;
+            DefeatedByBoss = fromBoss;
             Finish(false);
         }
         return true;
@@ -200,7 +207,7 @@ public sealed partial class MazeBetaGame
 
     public void SetShopOpen(bool open)
     {
-        if (!running || ShopOpen == open) return;
+        if (!running || IsCinematicPlaying || ShopOpen == open) return;
         if (open)
         {
             pausedBeforeShop = paused;
@@ -211,6 +218,7 @@ public sealed partial class MazeBetaGame
             ShopOpen = false;
             paused = pausedBeforeShop;
         }
+        MazeAudioDirector.Play(open?MazeSound.ShopOpen:MazeSound.ShopClose);
         RefreshActivity();
     }
 
@@ -222,7 +230,10 @@ public sealed partial class MazeBetaGame
 
     public bool BuyPowerUp(PowerUpKind kind)
     {
-        if (!running || !ShopOpen || !Progress.TryBuy(kind)) return false;
+        if (!running || !ShopOpen) return false;
+        if (!Progress.TryBuy(kind)){MazeAudioDirector.Play(MazeSound.Denied);return false;}
+        MazeAudioDirector.Play(MazeSound.Purchase);
+        MazeAudioDirector.Item(kind==PowerUpKind.Heal?ItemType.Curacion:kind==PowerUpKind.Shield?ItemType.Escudo:ItemType.Velocidad);
         Player.SpeedMultiplier = Progress.SpeedMultiplier;
         return true;
     }

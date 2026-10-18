@@ -56,7 +56,30 @@ public static class PlayerRigChecks
                 throw new Exception("Sleeve separates from the arm at the elbow");
             count++;
         }
-        return "PASS: " + count + " samples; normalized skin weights, matching elbow/sleeve deformation, clothing separated from knees, trousers/boots separated from arms, rigid face/hair.";
+        foreach (string name in new[] { "Cube.001", "Cube.007" })
+        for (int xi = -30; xi <= 30; xi++)
+        for (int yi = 0; yi <= 100; yi++)
+        foreach (float forward in new[] { -0.1f, 0, 0.06f, 0.15f })
+        {
+            var w = PlayerRigWeights.SampleMesh(name, xi / 100f, yi / 100f, forward);
+            if (Math.Abs(w.WA + w.WB + w.WC + w.WD - 1) > 0.0001f) throw new Exception("3D weights are not normalized");
+            foreach (float value in new[] { w.WA, w.WB, w.WC, w.WD })
+                if (float.IsNaN(value) || value < 0 || value > 1.0001f) throw new Exception("Invalid 3D skin weight");
+            count++;
+        }
+        foreach (float x in new[] { -0.24f, -0.18f, 0.18f, 0.24f })
+        foreach (float y in new[] { 0.36f, 0.40f, 0.45f, 0.50f })
+        {
+            var w = PlayerRigWeights.SampleMesh("Cube.001", x, y, 0.15f);
+            if (w.B != (int)(x < 0 ? PlayerRigBone.LeftForearm : PlayerRigBone.RightForearm) || w.WB < 0.9999f)
+                throw new Exception("Low hand/finger inherits a hip or leg weight");
+        }
+        foreach (float x in new[] { -0.01f, 0.01f })
+        {
+            var w = PlayerRigWeights.SampleMesh("Cube.005", x, 0.42f);
+            if (w.WA > 0.0001f || w.WB > 0.0001f) throw new Exception("Crotch is pulled apart by opposing legs");
+        }
+        return "PASS: " + count + " samples; normalized 3D skin weights, rigid low hands, matching sleeve field, continuous waist and crotch attached to pelvis.";
     }
 }
 '@)

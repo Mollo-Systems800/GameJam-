@@ -5,6 +5,7 @@ using UnityEngine.UI;
 public sealed class MazeCanvasHUD : MonoBehaviour
 {
     public MazeBetaGame game;
+    public MazeAudioSettingsPanel audioSettings;
     [Header("Vida y monedas")]
     public Image[] hearts;
     public Image coinIcon;
@@ -22,6 +23,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
     void Awake()
     {
         if (!game) game = FindAnyObjectByType<MazeBetaGame>();
+        audioSettings=MazeAudioSettingsView.Ensure(null,this);game.AudioSettings=audioSettings;
         shopButton.onClick.AddListener(() => game.SetShopOpen(true));
         closeShopButton.onClick.AddListener(() => game.SetShopOpen(false));
         primaryButton.onClick.AddListener(Continue);
@@ -45,7 +47,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
             if (hearts[i]) hearts[i].gameObject.SetActive(i < health);
         coinCount.text = progress.Coins.ToString();
         levelText.text = $"{game.ActiveArea.areaName} · Nivel {game.CurrentLevelInArea + 1}/3";
-        timeText.text = $"{Mathf.FloorToInt(progress.Elapsed / 60):00}:{Mathf.FloorToInt(progress.Elapsed % 60):00}   |   Score {progress.Score}";
+        timeText.text = $"{CampaignRanking.Format(game.CampaignSeconds)}   |   Score {progress.Score}";
         attemptsText.text = $"Derrotas: {game.LossesOnCurrentMaze}/2 · Cada 2 derrotas se genera un nuevo laberinto.";
         hintText.text = game.RestartNotice ?? (game.IsPlaying && game.Player && game.RequiresRollNear(game.Player.transform.position, .6f)
             ? "C / Ctrl: pasa rodando cerca de la señora." : "Shift: correr   ·   Espacio: saltar   ·   C / Ctrl: rodar   ·   B: tienda");
@@ -60,7 +62,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
             for (int i = 0; i < purchaseButtons.Length; i++) purchaseButtons[i].interactable = progress.CanBuy((PowerUpKind)i);
         }
         bool result = game.WaitingForRetry || game.HasWon || game.IsPaused;
-        resultPanel.SetActive(result && !game.ShopOpen);
+        resultPanel.SetActive(result && !game.ShopOpen && !game.IsCinematicPlaying);
         // A defeat has no buttons: the countdown automatically starts the next attempt.
         primaryButton.gameObject.SetActive(result && !game.WaitingForRetry);
         if (returnToMenuButton) returnToMenuButton.gameObject.SetActive(result && !game.WaitingForRetry && !game.ShopOpen);
@@ -76,6 +78,9 @@ public sealed class MazeCanvasHUD : MonoBehaviour
         {
             resultTitle.text = game.CampaignComplete ? "¡CAMPAÑA COMPLETADA!" : "¡NIVEL COMPLETADO!";
             resultDetails.text = $"Tiempo: {progress.Elapsed:0.0} s\nScore: {progress.Score}";
+            if (game.CampaignComplete)
+                resultDetails.text = $"Campaña: {CampaignRanking.Format(game.CampaignSeconds)}\n3 áreas · 9 niveles completados\n{game.RecordFeedback ?? (game.HasPendingCampaignRecord ? (game.IsCampaignBest ? "¡Nuevo récord!" : "¡Ya formas parte del ranking!") : game.CampaignClock.Finished ? "¡Encontraste la salida del último trámite!" : "Para el ranking, empieza una campaña desde el primer nivel.")}";
+            resultDetails.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, game.HasPendingCampaignRecord ? 94 : 158);
             primaryLabel.text = game.CampaignComplete ? "Nueva campaña" : "Siguiente nivel";
         }
         else if (game.IsPaused)
@@ -84,14 +89,15 @@ public sealed class MazeCanvasHUD : MonoBehaviour
             resultDetails.text = "Pulsa Esc para continuar.";
             primaryLabel.text = "Continuar";
         }
+        if (!game.HasWon) resultDetails.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, game.IsPaused?54:158);
     }
 
     void Continue()
     {
-        if (game.WaitingForRetry) return;
+        if (game.WaitingForRetry || game.IsCinematicPlaying) return;
         if (game.HasWon)
         {
-            if (game.CampaignComplete) game.StartCampaign(System.Guid.NewGuid().GetHashCode());
+            if (game.CampaignComplete) game.StartNewCampaign(System.Guid.NewGuid().GetHashCode());
             else game.AdvanceLevel();
         }
         else game.ResumeGame();

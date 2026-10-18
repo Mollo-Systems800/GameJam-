@@ -32,6 +32,7 @@ def posed(p):
     # before bending, so knees and hands extend in the same direction as her face.
     x,y,z=-p[0],p[1],-p[2]
     canonical=(x,y,z)
+    if y >= 1.30: return (x,y+.5-.84,z)
     hip,knee,seat=.84,.48,.5
     torso=(x,y+seat-hip,z)
     # Bend the thighs forward; leave shins vertical and feet resting on the floor.
@@ -42,13 +43,15 @@ def posed(p):
     # Relax the T-pose shoulders and bring forearms forward onto the lap.
     side=1 if x>=0 else -1
     root=(side*.17,1.18,-.02)
-    arm=rotate_z(tuple(canonical[i]-root[i] for i in range(3)),-side*75)
-    elbow=rotate_z((side*.26,-.10,0),-side*75)
-    fore=rotate_x(tuple(arm[i]-elbow[i] for i in range(3)),-100)
+    arm=rotate_z(tuple(canonical[i]-root[i] for i in range(3)),-side*60)
+    elbow=rotate_z((side*.26,-.10,0),-side*60)
+    fore=rotate_x(tuple(arm[i]-elbow[i] for i in range(3)),-120)
     fore=tuple(fore[i]+elbow[i] for i in range(3))
-    arm=mix(arm,fore,smooth(.37,.49,abs(x)))
+    arm=mix(arm,fore,smooth(.34,.43,abs(x)))
     arm=(arm[0]+root[0],arm[1]+root[1]+seat-hip,arm[2]+root[2])
-    return mix(body,arm,smooth(.17,.26,abs(x))*smooth(.86,.96,y))
+    # The entire hand follows one rigid forearm, including low fingertips.
+    mask = 1 if abs(x) >= .30 else smooth(.17,.24,abs(x))*smooth(.90,1.04,y)
+    return mix(body,arm,mask)
 
 
 def normal(p,n):
@@ -80,14 +83,6 @@ def main():
         elif l.startswith('# '):l='# Seated derivative of supplied Anderson; original model unchanged'
         output.append(l)
     TARGET.write_text('\n'.join(output)+'\n')
-    meta=SOURCE.with_suffix('.obj.meta').read_text()
-    meta=meta.replace('84e6c6183a7f5d4399badef04cb42f95',guid(TARGET.relative_to(ROOT).as_posix()))
-    TARGET.with_suffix('.obj.meta').write_text(meta)
-    source_prefab=ROOT/'Assets/03_Prefabs/AndersonShopkeeper.prefab'
-    prefab=ROOT/'Assets/03_Prefabs/SeatedWoman.prefab'
-    prefab.write_text(source_prefab.read_text().replace('AndersonShopkeeper','SeatedWoman')
-                      .replace('84e6c6183a7f5d4399badef04cb42f95',guid(TARGET.relative_to(ROOT).as_posix())))
-    prefab.with_suffix('.prefab.meta').write_text('fileFormatVersion: 2\nguid: '+guid(prefab.relative_to(ROOT).as_posix())+'\nPrefabImporter:\n  externalObjects: {}\n')
     print('Seated woman:',len(vertices),'vertices; seated hips at 0.5m; UVs, materials and source preserved.')
 
 

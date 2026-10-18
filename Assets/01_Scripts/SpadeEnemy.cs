@@ -17,6 +17,7 @@ public sealed class SpadeEnemy : MonoBehaviour
     int cell;
     int nextCell = -1;
     float elapsed;
+    float soundTime;
     readonly HashSet<int> blocked = new HashSet<int>();
 
     public void Initialize(MazeBetaGame owner, int mazeCell, float initialYaw)
@@ -109,6 +110,9 @@ public sealed class SpadeEnemy : MonoBehaviour
             else if (targetCell == cell || travelled < distance) break;
         }
         Vector3 direction = position - initial;
+        soundTime+=Time.fixedDeltaTime;
+        if(direction.sqrMagnitude>.00001f && soundTime>.85f)
+        { soundTime=0;MazeAudioDirector.Play(MazeSound.ShovelMove,position+Vector3.up*.5f,.24f); }
         body.MovePosition(position);
         if (direction.sqrMagnitude > 0.00001f)
             body.MoveRotation(Quaternion.RotateTowards(body.rotation, Quaternion.LookRotation(direction), turnSpeed * Time.fixedDeltaTime));
@@ -117,6 +121,8 @@ public sealed class SpadeEnemy : MonoBehaviour
         for (int d = 0; d < 4 && !sharedPassage; d++)
             sharedPassage = game.Grid.Neighbor(enemyCell, d) == targetCell && game.Grid.IsOpen(enemyCell, d);
         if (sharedPassage && game.TouchesPlayer(position + Vector3.up * 0.55f, contactRadius))
-            game.HitPlayer(damage, "TE ALCANZO UN SPADE");
+        {
+            if(game.HitPlayer(damage, "TE ALCANZO UN SPADE"))MazeAudioDirector.Play(MazeSound.ShovelHit,null,.55f);
+        }
     }
 }

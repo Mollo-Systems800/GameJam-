@@ -53,6 +53,7 @@ public static class MazeCanvasSetup
         if (!hud) hud = canvas.gameObject.AddComponent<MazeCanvasHUD>();
         hud.game = game;
         var bar = Panel("Vitals panel", root, new Vector2(0, -18), new Vector2(-36, 138));
+        var barColor = bar.GetComponent<Image>().color; barColor.a = 0; bar.GetComponent<Image>().color = barColor;
         bar.anchorMin = new Vector2(0, 1); bar.anchorMax = Vector2.one; bar.pivot = new Vector2(.5f, 1);
         hud.hearts = new Image[RunProgress.MaxHealth];
         for (int i = 0; i < hud.hearts.Length; i++)
@@ -67,6 +68,11 @@ public static class MazeCanvasSetup
         hud.timeText.alignment = TextAnchor.MiddleRight;
         hud.attemptsText = Label("Defeat rule", bar, "Cada 2 derrotas se genera un nuevo laberinto.", new Vector2(24, -104), new Vector2(-48, 23), 18);
         hud.attemptsText.rectTransform.anchorMax = Vector2.one;
+        foreach (var text in bar.GetComponentsInChildren<Text>())
+        {
+            var shadow = text.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0, 0, 0, .85f); shadow.effectDistance = new Vector2(1, -1);
+        }
         hud.hintText = Label("Hints and restart notice", root, "", new Vector2(0, 26), new Vector2(-40, 52), 20);
         hud.hintText.rectTransform.anchorMin = Vector2.zero; hud.hintText.rectTransform.anchorMax = Vector2.right;
         hud.hintText.rectTransform.pivot = new Vector2(.5f, 0);
@@ -85,6 +91,7 @@ public static class MazeCanvasSetup
         hud.primaryButton = Button("Continue", result, "Continuar", new Vector2(65, -260), new Vector2(380, 40));
         hud.primaryLabel = hud.primaryButton.GetComponentInChildren<Text>();
         hud.returnToMenuButton = Button("Return to start", result, "Volver al inicio", new Vector2(65, -316), new Vector2(380, 40));
+        AddCampaignRecordForm(hud);
         result.gameObject.SetActive(false);
 
         var shop = Modal("Shop panel", root, 550, 378);
@@ -147,6 +154,28 @@ public static class MazeCanvasSetup
         if (!game.shieldEffectPrefab)
             game.shieldEffectPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/Item/ShieldEffect.prefab");
         RepairShieldEffect();
+    }
+
+    public static void AddCampaignRecordForm(MazeCanvasHUD hud)
+    {
+        var old = hud.GetComponent<CampaignRecordForm>();
+        if (old) { if (old.form) UnityEngine.Object.DestroyImmediate(old.form); UnityEngine.Object.DestroyImmediate(old); }
+        var controller = hud.gameObject.AddComponent<CampaignRecordForm>(); controller.hud = hud;
+        var form = Rect("Campaign record entry", hud.resultPanel.transform, new Vector2(26, -178), new Vector2(458, 76));
+        controller.form = form.gameObject;
+        controller.message = Label("Record message", form, "Nuevo récord de campaña. Firma tu marca:", Vector2.zero, new Vector2(458, 27), 17);
+        var inputRect = Panel("Player name", form, new Vector2(0, -32), new Vector2(290, 40));
+        inputRect.GetComponent<Image>().color = new Color(.96f, .94f, .87f); inputRect.GetComponent<Image>().raycastTarget = true;
+        var text = Label("Text", inputRect, "", new Vector2(10, 0), new Vector2(270, 40), 21);
+        text.color = new Color(.12f, .16f, .15f); text.supportRichText = false;
+        var placeholder = Label("Placeholder", inputRect, "Tu nombre", new Vector2(10, 0), new Vector2(270, 40), 21);
+        placeholder.color = new Color(.4f, .43f, .40f); placeholder.fontStyle = FontStyle.Italic;
+        var input = inputRect.gameObject.AddComponent<InputField>(); input.targetGraphic = inputRect.GetComponent<Image>();
+        input.textComponent = text; input.placeholder = placeholder; input.characterLimit = 20;
+        input.lineType = InputField.LineType.SingleLine; input.contentType = InputField.ContentType.Standard;
+        controller.playerName = input;
+        controller.saveButton = Button("Save campaign record", form, "Guardar", new Vector2(304, -32), new Vector2(154, 40));
+        controller.form.SetActive(false); EditorUtility.SetDirty(controller);
     }
 
     static void RepairShieldEffect()

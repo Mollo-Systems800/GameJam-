@@ -10,7 +10,9 @@ using UnityEngine.SceneManagement;
 public static class StartupMenuVerification
 {
     const string Pending = "GameJam.StartupVerification";
-    static readonly string[] Keys = { "MazeBeta.CampaignSave.Exists", "MazeBeta.CampaignSave.Seed", "MazeBeta.CampaignSave.Level", "MazeBeta.CampaignSave.MazeSeed", "MazeBeta.BestScore", "MazeBeta.BestTime" };
+    static readonly string[] Keys = { "MazeBeta.CampaignSave.Exists", "MazeBeta.CampaignSave.Seed", "MazeBeta.CampaignSave.Level", "MazeBeta.CampaignSave.MazeSeed", "MazeBeta.BestScore", "MazeBeta.BestTime",
+        "MazeBeta.CampaignSave.Seconds", "MazeBeta.CampaignSave.CompletedLevels", "MazeBeta.CampaignSave.RankingEligible", CampaignRanking.StorageKey };
+    static bool FloatKey(string key) => key.EndsWith("BestTime") || key.EndsWith("Seconds");
     static StartupMenu menu;
     static MazeBetaGame game;
     static int phase, retrySeed, regeneratedSeed;
@@ -25,7 +27,7 @@ public static class StartupMenuVerification
         foreach (string key in Keys)
         {
             SessionState.SetBool(Pending + key + "Exists", PlayerPrefs.HasKey(key));
-            SessionState.SetString(Pending + key + "Value", key.EndsWith("BestTime") ? PlayerPrefs.GetFloat(key).ToString("R", System.Globalization.CultureInfo.InvariantCulture) : PlayerPrefs.GetInt(key).ToString());
+            SessionState.SetString(Pending + key + "Value", key == CampaignRanking.StorageKey ? PlayerPrefs.GetString(key) : FloatKey(key) ? PlayerPrefs.GetFloat(key).ToString("R", System.Globalization.CultureInfo.InvariantCulture) : PlayerPrefs.GetInt(key).ToString());
         }
         MazeCampaignSave.Reset();
         EditorSceneManager.OpenScene(StartupMenuSetup.ScenePath);
@@ -60,7 +62,11 @@ public static class StartupMenuVerification
             if (phase == 0 && MenuReady() && now - since > .5)
             {
                 Check(EditorBuildSettings.scenes[0].path == StartupMenuSetup.ScenePath, "Inicio is not first build scene.");
-                Check(menu.backgroundDisplay.sprite && menu.backgroundTexture, "Original artwork missing.");
+                Check(menu.GetComponent<StartupCharacterPortrait>().playerPrefab && menu.GetComponent<StartupCharacterPortrait>().photo.texture, "Actual player portrait missing.");
+                Check(menu.mainPanel.Find("Application form/Title").GetComponent<UnityEngine.UI.Text>().text == "THE MAZE\nOF WORK", "Official game title missing.");
+                Check(menu.mainPanel.Find("Plan B/Maze pencil sketch").GetComponent<StartupPaperArt>().drawing == StartupPaperArt.Drawing.Maze,
+                    "Native maze sketch missing.");
+                Check(UnityEngine.Object.FindObjectsByType<StartupPaperArt>().All(x => x.GetComponent<CanvasRenderer>()), "Paper renderer missing.");
                 Check(!menu.loadGameButton.interactable, "Continue enabled without checkpoint.");
                 menu.controlsButton.onClick.Invoke();
                 Check(menu.controlsPanel.activeSelf && !menu.panelGroup.interactable, "Controls modal not isolated.");
@@ -132,7 +138,8 @@ public static class StartupMenuVerification
         foreach (string key in Keys)
         {
             if (!SessionState.GetBool(Pending + key + "Exists", false)) PlayerPrefs.DeleteKey(key);
-            else if (key.EndsWith("BestTime")) PlayerPrefs.SetFloat(key, float.Parse(SessionState.GetString(Pending + key + "Value", "0"), System.Globalization.CultureInfo.InvariantCulture));
+            else if (key == CampaignRanking.StorageKey) PlayerPrefs.SetString(key, SessionState.GetString(Pending + key + "Value", "{}"));
+            else if (FloatKey(key)) PlayerPrefs.SetFloat(key, float.Parse(SessionState.GetString(Pending + key + "Value", "0"), System.Globalization.CultureInfo.InvariantCulture));
             else PlayerPrefs.SetInt(key, int.Parse(SessionState.GetString(Pending + key + "Value", "0")));
         }
         PlayerPrefs.Save();

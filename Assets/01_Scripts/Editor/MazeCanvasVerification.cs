@@ -61,6 +61,7 @@ public static class MazeCanvasVerification
                 hud = UnityEngine.Object.FindAnyObjectByType<MazeCanvasHUD>();
                 if (!game || !game.Player || !hud || game.Progress == null) return;
                 game.recordResults = false; game.bossGracePeriod = 10000;
+                game.playOutcomeCinematics = false; // Verify the countdown independently of story duration.
                 game.spadeCount = game.turretCount = 0;
                 game.defeatRestartDelay = 1.25f;
                 game.StartCampaign(17831);

@@ -70,7 +70,9 @@ public static class MazeBetaSetup
         if (!game.playerPrefab) game.playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/Player.prefab");
         if (!game.wallPrefab) game.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_3M.prefab");
         if (!game.floorPrefab) game.floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/OfficeSmoothFloor.prefab");
-        if (!game.bossVisualPrefab) game.bossVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SolicitudTrabajo.fbx");
+        if (!game.bossVisualPrefab || game.bossVisualPrefab.name == "SolicitudTrabajo") game.bossVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/EmploymentApplicationBoss.prefab")
+            ?? AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SolicitudTrabajo.fbx");
+        if (!game.pillVisualPrefab) game.pillVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/MedicineBox.prefab");
         if (!game.platformPrefab) game.platformPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/JumpPlatform.prefab");
         if (!game.spadeEnemyPrefab) game.spadeEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SpadeEnemy.prefab");
         if (!game.turretEnemyPrefab) game.turretEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/TurretEnemy.prefab");
@@ -86,7 +88,9 @@ public static class MazeBetaSetup
         // and all assigned overrides remain editable in the scene inspector.
         if (!game.areas[1].wallPrefab) game.areas[1].wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_2M.prefab");
         if (!game.areas[1].floorPrefab) game.areas[1].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/ArchiveSmoothFloor.prefab");
-        if (!game.areas[2].wallPrefab) game.areas[2].wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_Lamp.prefab");
+        if (!game.areas[2].wallPrefab || game.areas[2].wallPrefab.name == "Wall_Lamp")
+            game.areas[2].wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/CourtyardWall.prefab")
+                ?? AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_3M.prefab");
         if (!game.areas[2].floorPrefab) game.areas[2].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/CourtyardSmoothFloor.prefab");
         if (!game.playerPrefab || !game.wallPrefab || !game.floorPrefab)
             throw new System.InvalidOperationException("Faltan los recursos del personaje o del laberinto.");

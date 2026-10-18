@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 public sealed class StartupMenu : MonoBehaviour
 {
+    public MazeAudioSettingsPanel audioSettings;
     [Header("Ilustracion y Canvas recibidos")]
     public Texture2D backgroundTexture;
     public Image backgroundDisplay;
@@ -24,6 +25,13 @@ public sealed class StartupMenu : MonoBehaviour
     [Header("Controles")]
     public GameObject controlsPanel;
     public Button closeControlsButton;
+    [Header("Ranking de campanas completas")]
+    public Button rankingButton, closeRankingButton;
+    public GameObject rankingPanel;
+    public Text rankingNames, rankingTimes, rankingStatus;
+    public Button previousRankingPage, nextRankingPage, finalistsButton;
+    public Text rankingPage, finalistsSummary;
+    int shownRankingPage;
     [Header("Escena jugable")]
     public string gameScene = "BetaMaze";
     public bool IsLoading { get; private set; }
@@ -35,6 +43,8 @@ public sealed class StartupMenu : MonoBehaviour
 
     void Awake()
     {
+        StartupRankingView.Ensure(this);
+        audioSettings=MazeAudioSettingsView.Ensure(this,null);
         Time.timeScale = 1;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
         if (backgroundDisplay && backgroundTexture && !backgroundDisplay.sprite)
@@ -50,6 +60,12 @@ public sealed class StartupMenu : MonoBehaviour
         confirmResetButton.onClick.AddListener(ConfirmReset);
         cancelResetButton.onClick.AddListener(CancelResetConfirmation);
         closeControlsButton.onClick.AddListener(CloseControls);
+        if (rankingButton) rankingButton.onClick.AddListener(ShowRanking);
+        if (closeRankingButton) closeRankingButton.onClick.AddListener(CloseRanking);
+        if (previousRankingPage) previousRankingPage.onClick.AddListener(() => ChangeRankingPage(-1));
+        if (nextRankingPage) nextRankingPage.onClick.AddListener(() => ChangeRankingPage(1));
+        if (finalistsButton) finalistsButton.onClick.AddListener(ShowRanking);
+        if (rankingPanel) rankingPanel.SetActive(false);
         resetConfirmation.SetActive(false); controlsPanel.SetActive(false);
         shownAt = Time.unscaledTime;
         RefreshMenuState(); FitPanel();
@@ -64,7 +80,9 @@ public sealed class StartupMenu : MonoBehaviour
             || Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
         if (back && !IsLoading)
         {
-            if (controlsPanel.activeSelf) CloseControls();
+            if (audioSettings&&audioSettings.IsOpen)audioSettings.Close();
+            else if (rankingPanel && rankingPanel.activeSelf) CloseRanking();
+            else if (controlsPanel.activeSelf) CloseControls();
             else if (resetConfirmation.activeSelf) CancelResetConfirmation();
         }
     }
@@ -73,11 +91,10 @@ public sealed class StartupMenu : MonoBehaviour
     {
         var rect = (RectTransform)menuCanvas.transform;
         previousSize = rect.rect.size;
-        float scale = Mathf.Min(1, (previousSize.x - 64) / 620, (previousSize.y - 80) / 860);
+        float scale = Mathf.Min(1, (previousSize.x - 64) / mainPanel.sizeDelta.x, (previousSize.y - 64) / mainPanel.sizeDelta.y);
         scale = Mathf.Max(.1f, scale);
         mainPanel.localScale = Vector3.one * scale;
-        float left = previousSize.x / previousSize.y > 1.3f ? Mathf.Max(32, previousSize.x * .075f)
-            : (previousSize.x - 620 * scale) * .5f;
+        float left = (previousSize.x - mainPanel.sizeDelta.x * scale) * .5f;
         mainPanel.anchoredPosition = new Vector2(left, 0);
         foreach (var dialog in dialogs)
             dialog.localScale = Vector3.one * Mathf.Min(1, (previousSize.x - 64) / dialog.sizeDelta.x, (previousSize.y - 64) / dialog.sizeDelta.y);
@@ -115,11 +132,13 @@ public sealed class StartupMenu : MonoBehaviour
     IEnumerator LoadScene()
     {
         IsLoading = true; resetConfirmation.SetActive(false); controlsPanel.SetActive(false);
+        if (rankingPanel) rankingPanel.SetActive(false);
+        if (rankingButton) rankingButton.interactable = false;
         newGameButton.interactable = loadGameButton.interactable = resetButton.interactable = controlsButton.interactable = exitButton.interactable = false;
         loading = SceneManager.LoadSceneAsync(gameScene);
         while (loading != null && !loading.isDone)
         {
-            feedback.text = $"Preparando tu salida… {Mathf.RoundToInt(Mathf.Clamp01(loading.progress / .9f) * 100)}%";
+            feedback.text = $"Abriendo expediente… {Mathf.RoundToInt(Mathf.Clamp01(loading.progress / .9f) * 100)}%";
             yield return null;
         }
     }
@@ -128,7 +147,7 @@ public sealed class StartupMenu : MonoBehaviour
         if (IsLoading) return;
         confirmingNew = false;
         confirmationTitle.text = "¿BORRAR EL PROGRESO?";
-        confirmationMessage.text = "Se borrarán el nivel guardado y tus récords. Esta acción no se puede deshacer.";
+        confirmationMessage.text = "Se borrarán el nivel guardado, tus récords y el ranking local. Esta acción no se puede deshacer.";
         confirmationAction.text = "Borrar progreso";
         ShowConfirmation();
     }
@@ -161,10 +180,49 @@ public sealed class StartupMenu : MonoBehaviour
         bool hasSave = MazeCampaignSave.TryLoad(out var save);
         loadGameButton.interactable = hasSave;
         resetButton.interactable = hasSave || MazeCampaignSave.HasRecords;
-        checkpointStatus.text = hasSave ? $"ÁREA {(save.Level - 1) / 3 + 1}/3   ·   NIVEL {(save.Level - 1) % 3 + 1}/3 guardado"
-            : "Tu próximo comienzo está aquí.";
-        recordStatus.text = MazeCampaignSave.HasRecords ? $"RÉCORD   {PlayerPrefs.GetInt("MazeBeta.BestScore", 0)} puntos" : "3 áreas   /   9 niveles   /   una salida";
-        feedback.text = "El progreso se guarda al comenzar cada nivel.";
+        checkpointStatus.text = hasSave ? $"EXPEDIENTE ABIERTO  /  ÁREA {(save.Level - 1) / 3 + 1}/3 · NIVEL {(save.Level - 1) % 3 + 1}/3"
+            : "SIN EXPEDIENTE ABIERTO";
+        var records = CampaignRanking.Read();
+        recordStatus.text = records.Count > 0 ? $"MEJOR CAMPAÑA   {CampaignRanking.Format(records[0].seconds)}" : "3 ÁREAS  /  9 NIVELES  /  1 SALIDA";
+        if (finalistsSummary)
+        {
+            var summary = new System.Text.StringBuilder();
+            for (int i = 0; i < Mathf.Min(3, records.Count); i++)
+                summary.AppendLine($"{i + 1:00}   {records[i].name}   /   {CampaignRanking.Format(records[i].seconds)}");
+            finalistsSummary.text = records.Count == 0 ? "El primer puesto sigue vacante.\nCompleta los 9 niveles y deja tu nombre." : summary.ToString();
+        }
+        feedback.text = "Tu avance se guarda al empezar cada nivel.";
+    }
+    public void ShowRanking()
+    {
+        if (IsLoading || !rankingPanel) return;
+        shownRankingPage = 0;
+        RefreshRanking();
+        panelGroup.interactable = false; rankingPanel.SetActive(true); Select(closeRankingButton);
+    }
+    public void ChangeRankingPage(int direction)
+    {
+        shownRankingPage += direction; RefreshRanking();
+    }
+    void RefreshRanking()
+    {
+        var rows = CampaignRanking.Read();
+        int pages = Mathf.Max(1, Mathf.CeilToInt(rows.Count / (float)CampaignRanking.PageSize));
+        shownRankingPage = Mathf.Clamp(shownRankingPage, 0, pages - 1);
+        var names = new System.Text.StringBuilder(); var times = new System.Text.StringBuilder();
+        for (int i = shownRankingPage * CampaignRanking.PageSize; i < Mathf.Min(rows.Count, (shownRankingPage + 1) * CampaignRanking.PageSize); i++)
+        { names.AppendLine($"{i + 1:00}   {rows[i].name}"); times.AppendLine(CampaignRanking.Format(rows[i].seconds)); }
+        rankingNames.text = names.ToString(); rankingTimes.text = times.ToString();
+        rankingStatus.text = rows.Count == 0 ? "Todavía no hay marcas.\nCompleta las 3 áreas y sus 9 niveles para firmar la primera."
+            : "Solo campañas completas. Menor tiempo, mejor posición.\nLos tiempos incluyen los intentos fallidos.";
+        if (rankingPage) rankingPage.text = $"{shownRankingPage + 1} / {pages}   ·   {rows.Count} finalistas";
+        if (previousRankingPage) previousRankingPage.interactable = shownRankingPage > 0;
+        if (nextRankingPage) nextRankingPage.interactable = shownRankingPage + 1 < pages;
+    }
+    public void CloseRanking()
+    {
+        if (rankingPanel) rankingPanel.SetActive(false);
+        panelGroup.interactable = true; Select(rankingButton);
     }
     static void Select(Button button)
     {
@@ -180,6 +238,7 @@ public sealed class StartupMenu : MonoBehaviour
     }
     public static void ReturnToStart()
     {
+        var game = FindAnyObjectByType<MazeBetaGame>(); if (game) game.SaveCampaignCheckpoint();
         Time.timeScale = 1;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
         SceneManager.LoadScene("Inicio");
