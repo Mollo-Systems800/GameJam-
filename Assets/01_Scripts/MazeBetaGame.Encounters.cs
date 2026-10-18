@@ -13,8 +13,14 @@ public sealed partial class MazeBetaGame
     public GameObject turretBarrelVisualPrefab;
     public GameObject coinVisualPrefab;
     public GameObject projectileVisualPrefab;
-    [Header("Ambientacion y tienda")]
-    public GameObject shopkeeperPrefab;
+    [Header("Senoras sentadas y tienda")]
+    [UnityEngine.Serialization.FormerlySerializedAs("shopkeeperPrefab")]
+    public GameObject seatedWomanPrefab;
+    [Min(3)] public int seatedWomanCount = 3;
+    [Range(-180,180)] public float seatedWomanYaw = 0;
+    [Range(-180,180)] public float seatedChairYaw = 180;
+    public Vector3 seatedWomanOffset = new Vector3(0,0,0.25f);
+    public GameObject storePrefab;
     public GameObject chairPrefab;
     [Range(0, 30)] public int chairCount = 10;
     [Range(0, 20)] public int spadeCount = 6;
@@ -41,7 +47,7 @@ public sealed partial class MazeBetaGame
 
     void SpawnEncounters(int bossCell)
     {
-        Encounters = new MazeEncounters(Grid, ActiveSeed, obstacleCells, bossCell, spadeCount, turretCount, coinCount);
+        Encounters = new MazeEncounters(Grid, ActiveSeed, obstacleCells, bossCell, spadeCount, turretCount, coinCount, residentCells);
         for (int i = 0; i < Encounters.Spades.Count; i++)
         {
             int cell = Encounters.Spades[i];
@@ -80,26 +86,12 @@ public sealed partial class MazeBetaGame
 
     void SpawnSuppliedProps(int bossCell)
     {
-        // Furnish only closed sides of safe cells, leaving centre-to-centre routes clear.
-        float npcInset = WallThickness * 0.5f + 0.35f;
-        if (EnvShopkeeper && cellSize * 0.5f - npcInset > 0.56f)
-        {
-            for (int d = 0; d < 4; d++)
-            {
-                if (Grid.IsOpen(0, d)) continue;
-                var npc = SpawnWallProp(EnvShopkeeper, "Anderson - Tienda", 0, d,
-                    new Vector3(1.6f, 1.65f, 0.6f), npcInset);
-                var shape = npc.AddComponent<CapsuleCollider>();
-                shape.height = 1.65f;
-                shape.radius = 0.22f;
-                shape.center = Vector3.up * 0.825f;
-                Label("TIENDA [B]", npc.transform.position + Vector3.up * 1.95f,
-                    npc.transform, new Color(1, 0.85f, 0.25f), 0.055f);
-                break;
-            }
-        }
+        SpawnStoreTerminal();
+        SpawnSeatedWomen();
         if (!EnvChair || chairCount <= 0) return;
         var reserved = new System.Collections.Generic.HashSet<int>(obstacleCells) { 0, bossCell };
+        foreach (int cell in Grid.ParkourCells) reserved.Add(cell);
+        foreach (int cell in residentCells) reserved.Add(cell);
         foreach (var exit in Grid.Exits) reserved.Add(exit.Cell);
         foreach (int cell in Encounters.Spades) reserved.Add(cell);
         foreach (int cell in Encounters.Turrets) reserved.Add(cell);
@@ -251,32 +243,4 @@ public sealed partial class MazeBetaGame
         PlayerPrefs.Save();
     }
 
-    void DrawRunHUD(float screenWidth, float screenHeight)
-    {
-        float x = screenWidth - 310;
-        GUI.Box(new Rect(x, 12, 298, 190), "PARTIDA Y TIENDA");
-        GUI.Label(new Rect(x + 12, 38, 280, 24), $"Vida: {Progress.Health}/{RunProgress.MaxHealth} | Monedas: {Progress.Coins}");
-        GUI.Label(new Rect(x + 12, 62, 280, 24), $"Score por tiempo + monedas: {Progress.Score}");
-        GUI.Label(new Rect(x + 12, 86, 280, 24), $"Mejor score: {BestScore} | Mejor tiempo: {(BestTime < 0 ? "--" : BestTime.ToString("0.0") + "s")}");
-        GUI.Label(new Rect(x + 12, 110, 280, 24), $"Velocidad x1.5: {Progress.SpeedSeconds:0}s | Escudo: {Progress.ShieldSeconds:0}s");
-        if (running && GUI.Button(new Rect(x + 12, 145, 274, 32), ShopOpen ? "Cerrar tienda (B / Esc)" : "Tienda (B / Select)"))
-            SetShopOpen(!ShopOpen);
-        if (!ShopOpen) return;
-        Rect panel = new Rect(screenWidth / 2 - 260, screenHeight / 2 - 160, 520, 320);
-        GUI.Box(panel, "TIENDA - PARTIDA PAUSADA");
-        GUI.Label(new Rect(panel.x + 22, panel.y + 30, 476, 26), $"Saldo: {Progress.Coins} monedas. Los power-ups se activan al comprar.");
-        DrawOffer(new Rect(panel.x + 22, panel.y + 72, 476, 44), PowerUpKind.Speed, "Velocidad x1.5 durante 10s");
-        DrawOffer(new Rect(panel.x + 22, panel.y + 126, 476, 44), PowerUpKind.Shield, "Escudo contra enemigos durante 8s");
-        DrawOffer(new Rect(panel.x + 22, panel.y + 180, 476, 44), PowerUpKind.Heal, "Recuperar 1 punto de vida");
-        GUI.Label(new Rect(panel.x + 22, panel.y + 232, 476, 28), "Las monedas y mejoras se reinician en cada intento.");
-        if (GUI.Button(new Rect(panel.x + 22, panel.y + 270, 476, 34), "Volver al laberinto")) SetShopOpen(false);
-    }
-
-    void DrawOffer(Rect rect, PowerUpKind kind, string title)
-    {
-        bool previous = GUI.enabled;
-        GUI.enabled = Progress.CanBuy(kind);
-        if (GUI.Button(rect, title + " - " + RunProgress.Price(kind) + " monedas")) BuyPowerUp(kind);
-        GUI.enabled = previous;
-    }
 }

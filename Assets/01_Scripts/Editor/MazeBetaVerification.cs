@@ -233,15 +233,15 @@ public static class MazeBetaVerification
                 int cell = game.ObstacleCells[0];
                 Vector3 centre = game.CellPosition(cell);
                 Vector3 axis = game.Grid.IsOpen(cell, 0) ? Vector3.forward : Vector3.right;
-                Require(Physics.Raycast(centre + Vector3.up, Vector3.down, 2), "Stepping platform missing");
-                Require(!Physics.Raycast(centre + axis * game.cellSize * 0.22f + Vector3.up, Vector3.down, 2),
+                Require(!Physics.Raycast(centre + Vector3.up, Vector3.down, 1.5f, ~0, QueryTriggerInteraction.Ignore),
                     "Gap has an invisible full floor collider");
-                Teleport(centre + axis * game.cellSize * 0.22f + Vector3.up * 0.1f);
+                Require(Physics.Raycast(centre + Vector3.up, Vector3.down, 4, ~0, QueryTriggerInteraction.Ignore), "Spike bed floor missing");
+                Teleport(centre + Vector3.up * 0.1f);
                 Next();
             }
             else if (phase == 10 && EditorApplication.timeSinceStartup - phaseTime > 1.2)
             {
-                Require(!game.IsPlaying && !game.HasWon && game.DefeatReason.Contains("PRECIPICIO"), "Falling did not cause defeat");
+                Require(!game.IsPlaying && !game.HasWon && game.DefeatReason.Contains("PUAS"), "Falling onto spikes did not cause defeat");
                 // Every exterior opening must independently end the game.
                 for (int i = 0; i < game.Grid.Exits.Count; i++)
                 {
@@ -359,7 +359,7 @@ public static class MazeBetaVerification
             {
                 Require(Vector3.Distance(start, orbitEnemy.GetComponent<Rigidbody>().position) > 0.05f, "Spade did not resume pursuit");
                 game.spadeCount = 0;
-                game.shopkeeperPrefab = null;
+                game.storePrefab = null;
                 game.chairCount = 0;
                 game.bossGracePeriod = 1000;
                 game.Begin(oldSeed);

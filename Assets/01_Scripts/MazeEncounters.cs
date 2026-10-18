@@ -8,9 +8,16 @@ public sealed class MazeEncounters
     public readonly List<int> Coins = new List<int>();
 
     public MazeEncounters(MazeGrid grid, int seed, IEnumerable<int> pits, int bossCell,
-        int spadeCount, int turretCount, int coinCount)
+        int spadeCount, int turretCount, int coinCount, IEnumerable<int> residents = null)
     {
         var forbidden = new HashSet<int>(pits) { 0, bossCell };
+        foreach (int cell in grid.ParkourCells) forbidden.Add(cell);
+        if (residents != null)
+            foreach (int cell in residents)
+            {
+                forbidden.Add(cell);
+                for (int d=0; d<4; d++) forbidden.Add(grid.Neighbor(cell,d));
+            }
         foreach (var exit in grid.Exits) forbidden.Add(exit.Cell);
         var distances = grid.DistancesFrom(0);
         var candidates = new List<int>();

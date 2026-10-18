@@ -15,15 +15,19 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
     public TextAsset runMotion;
     public TextAsset jumpMotion;
     public TextAsset rollMotion;
-    [Min(0.1f)] public float runReferenceSpeed = 4;
+    [Min(0.1f)] public float runReferenceSpeed = 5.4f;
     [Range(0, 2)] public float idleStrength = 1;
     [Range(0, 1)] public float motionStrength = 0.65f;
-    [Range(0, 1)] public float sprintMotionStrength = 0.9f;
+    [Range(0, 1)] public float sprintMotionStrength = 1;
+    [Range(0, 1)] public float jumpMotionStrength = 0.95f;
     [Range(0, 1)] public float walkMotionStrength = 0.85f;
     [Min(0.5f)] public float walkCycleDistance = 3.2f;
     [Header("Postura y balanceo del torso")]
-    [Range(0, 14)] public float torsoTwist = 9;
-    [Range(0, 8)] public float runningLean = 3;
+    [Range(0, 14)] public float torsoTwist = 6;
+    [Range(0, 8)] public float runningLean = 1;
+    [Range(0, 8)] public float maxGroundedTorsoTilt = 4;
+    [Tooltip("Corrige la pose encorvada de la malla original antes de animarla. Reinicia Play al cambiarlo.")]
+    [Range(0, 1)] public float restPostureStrength = 1;
     [Range(0, 0.01f)] public float hipSway = 0.004f;
     [Header("Movimiento natural")]
     [Range(0, 2)] public float breathingStrength = 1;
@@ -35,6 +39,7 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
     public float WalkAnimationWeight => stride * (1 - sprintWeight) * (1 - airWeight) * (player && !player.IsRolling ? 1 : 0);
     public float RunAnimationWeight => sprintWeight * (1 - airWeight) * (player && !player.IsRolling ? 1 : 0);
     public bool HasJumpMotion => jumpData != null;
+    public float JumpAnimationWeight => Mathf.Max(airWeight, landing * 0.65f) * (1 - rollWeight);
     public bool HasRollMotion => rollData != null;
     public bool IsReady { get; private set; }
     readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -62,12 +67,20 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
     Vector3 chestRest, previousPosition, previousVelocity;
     float lifeTime, breathPhase, breath, exertion, airWeight, unsupportedTime;
     float accelerationLean, turnLean, previousYaw;
+    PlayerRestPosture restPosture;
+    readonly List<Vector3> supportPoints = new List<Vector3>();
+    readonly List<BoneWeight> supportWeights = new List<BoneWeight>();
+    Matrix4x4[] skinBindposes, supportMatrices;
+    Vector3[] posedSupport;
+    float rollWeight;
+    public float RollAnimationWeight => rollWeight;
 
     [Serializable] sealed class MotionData
     {
         public float duration;
         public float sampleRate;
         public bool loop;
+        public bool standingPose;
         public float takeoff, apex = 0.5f, landing = 1;
         public MotionTrack[] tracks;
         public float[] rollDegrees;
@@ -101,11 +114,12 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         }
         if (!hasBounds || body.size.y < 0.0001f) return;
         characterHeight = body.size.y;
-        restBounds = body;
+        restPosture = new PlayerRestPosture(usable, player.visual, body, restPostureStrength);
+        restBounds = new Bounds();
         rig = new GameObject("Procedural Limb Rig").transform;
         rig.SetParent(player.visual, false);
         bones = new Transform[Enum.GetValues(typeof(PlayerRigBone)).Length];
-        Vector3 centre = new Vector3(body.center.x, body.min.y, body.center.z);
+        Vector3 centre = new Vector3(body.center.x, body.min.y, restPosture.CentreZ);
         Bone(PlayerRigBone.Hips, rig, centre, 0, 0.49f);
         Bone(PlayerRigBone.Spine, bones[0], centre, 0, 0.58f);
         Bone(PlayerRigBone.Chest, bones[(int)PlayerRigBone.Spine], centre, 0, 0.72f);
@@ -122,6 +136,12 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         previousPosition = player.transform.position;
         previousYaw = player.visual.eulerAngles.y;
         foreach (var filter in usable) Skin(filter, body);
+        supportMatrices = new Matrix4x4[bones.Length];
+        posedSupport = new Vector3[supportPoints.Count];
+        // Keep the corrected pelvis over the controller rather than retaining
+        // the old bounds centre, which included the forward head and hands.
+        player.visual.localPosition += player.transform.InverseTransformVector(
+            player.visual.TransformVector(Vector3.forward * (body.center.z - restPosture.CentreZ)));
         wasGrounded = player.IsGrounded;
         IsReady = ownedMeshes.Count > 0;
         idleData = LoadMotion(idleMotion);
@@ -145,7 +165,9 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
     {
         var bone = new GameObject(id.ToString()).transform;
         bone.SetParent(parent, false);
-        bone.position = player.visual.TransformPoint(origin + new Vector3(x, y, 0) * characterHeight);
+        float forward = id == PlayerRigBone.LeftForearm || id == PlayerRigBone.RightForearm
+            ? Mathf.Tan(4 * Mathf.Deg2Rad) * 0.17f * restPostureStrength : 0;
+        bone.position = player.visual.TransformPoint(origin + new Vector3(x, y, forward) * characterHeight);
         bone.rotation = player.visual.rotation;
         bones[(int)id] = bone;
     }
@@ -156,12 +178,14 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         mesh.name = filter.sharedMesh.name + " - Animated Instance";
         var weights = new BoneWeight[mesh.vertexCount];
         Vector3[] vertices = mesh.vertices;
+        var sourcePoints = new Vector3[vertices.Length];
         Matrix4x4 toCharacter = player.visual.worldToLocalMatrix * filter.transform.localToWorldMatrix;
         Matrix4x4 normalMatrix = toCharacter.inverse.transpose;
         for (int i = 0; i < vertices.Length; i++)
         {
             Vector3 point = toCharacter.MultiplyPoint3x4(vertices[i]);
-            vertices[i] = point;
+            sourcePoints[i] = point;
+            vertices[i] = restPosture.Point(point, filter.name);
             var influence = PlayerRigWeights.SampleMesh(filter.name, (point.x - bounds.center.x) / bounds.size.y,
                 (point.y - bounds.min.y) / bounds.size.y);
             weights[i] = new BoneWeight { boneIndex0 = influence.A, boneIndex1 = influence.B, boneIndex2 = influence.C, boneIndex3 = influence.D,
@@ -171,13 +195,16 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         // Keeping renderers under mirrored FBX transforms can invert shading and offsets.
         mesh.vertices = vertices;
         Vector3[] normals = mesh.normals;
-        for (int i = 0; i < normals.Length; i++) normals[i] = normalMatrix.MultiplyVector(normals[i]).normalized;
+        for (int i = 0; i < normals.Length; i++)
+            normals[i] = restPosture.Normal(sourcePoints[i],
+                normalMatrix.MultiplyVector(normals[i]).normalized, filter.name);
         mesh.normals = normals;
         Vector4[] tangents = mesh.tangents;
         float sign = toCharacter.determinant < 0 ? -1 : 1;
         for (int i = 0; i < tangents.Length; i++)
         {
             Vector3 tangent = toCharacter.MultiplyVector(new Vector3(tangents[i].x, tangents[i].y, tangents[i].z)).normalized;
+            tangent = restPosture.Tangent(sourcePoints[i], tangent, filter.name);
             tangents[i] = new Vector4(tangent.x, tangent.y, tangent.z, tangents[i].w * sign);
         }
         mesh.tangents = tangents;
@@ -192,6 +219,8 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
                 mesh.SetTriangles(triangles, submesh, false);
             }
         mesh.RecalculateBounds();
+        if (ownedMeshes.Count == 0) restBounds = mesh.bounds;
+        else restBounds.Encapsulate(mesh.bounds);
         var item = new GameObject("Animated " + filter.name);
         item.transform.SetParent(player.visual, false);
         var skin = item.AddComponent<SkinnedMeshRenderer>();
@@ -199,6 +228,9 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         for (int i = 0; i < bones.Length; i++) bindposes[i] = bones[i].worldToLocalMatrix * item.transform.localToWorldMatrix;
         mesh.bindposes = bindposes;
         mesh.boneWeights = weights;
+        skinBindposes = bindposes;
+        supportPoints.AddRange(vertices);
+        supportWeights.AddRange(weights);
         skin.sharedMesh = mesh;
         skin.bones = bones;
         skin.rootBone = rig;
@@ -225,12 +257,17 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         bool grounded = player.IsGrounded || (player.VerticalVelocity <= 0 && unsupportedTime < 0.1f);
         float target = grounded ? Mathf.Clamp01(player.PlanarSpeed / Mathf.Max(0.1f, player.baseSpeed)) : 0;
         float blend = 1 - Mathf.Exp(-blendSpeed * dt);
+        float rollProgress = player.RollProgress;
+        float rollTarget = player.IsRolling
+            ? Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, 0.18f, rollProgress))
+                * (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.78f, 1, rollProgress))) : 0;
+        rollWeight = Mathf.Lerp(rollWeight, rollTarget, 1 - Mathf.Exp(-dt * 30));
         airWeight = Mathf.Lerp(airWeight, grounded ? 0 : 1, 1 - Mathf.Exp(-dt / Mathf.Max(0.05f, actionBlendTime)));
         stride = Mathf.Lerp(stride, target, blend);
         // Use the controller's sprint action, not an absolute speed threshold:
         // fatigue can make sprinting slower than the original walking speed.
         float sprintTarget = player.IsSprinting ? 1 : 0;
-        sprintWeight = Mathf.Lerp(sprintWeight, grounded ? sprintTarget : 0, blend);
+        sprintWeight = Mathf.Lerp(sprintWeight, sprintTarget, blend);
         idleWeight = grounded ? (1 - stride) * idleStrength : 0;
         airborne = !grounded;
         // Breathing never stops at takeoff, at an action boundary or when speed reaches zero.
@@ -314,18 +351,36 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             rig.localPosition = Vector3.Lerp(rig.localPosition, Vector3.zero, blend);
             return;
         }
-        float frame = player.RollProgress * (rollData.rollDegrees.Length - 1);
+        // Crouch first, complete the turn, then stand. Keep the source FBX's
+        // unwrapped turn timing inside that action window.
+        float rotationProgress = Mathf.InverseLerp(0.12f, 0.88f, player.RollProgress);
+        float frame = rotationProgress * (rollData.rollDegrees.Length - 1);
         int first = Mathf.FloorToInt(frame);
         float degrees = Mathf.Lerp(rollData.rollDegrees[first],
             rollData.rollDegrees[Mathf.Min(first + 1, rollData.rollDegrees.Length - 1)], frame - first);
         Quaternion rotation = Quaternion.AngleAxis(degrees, Vector3.right);
-        Vector3 pivot = restBounds.center;
+        // Evaluate the actual posed skin in visual space, with the previous root
+        // transform removed. Standing bounds cannot support a tucked body correctly.
+        rig.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        for (int i = 0; i < bones.Length; i++)
+            supportMatrices[i] = player.visual.worldToLocalMatrix * bones[i].localToWorldMatrix * skinBindposes[i];
+        Bounds posed = default;
+        for (int i = 0; i < supportPoints.Count; i++)
+        {
+            BoneWeight w = supportWeights[i];
+            Vector3 p = supportPoints[i];
+            Vector3 point = supportMatrices[w.boneIndex0].MultiplyPoint3x4(p) * w.weight0;
+            if (w.weight1 > 0) point += supportMatrices[w.boneIndex1].MultiplyPoint3x4(p) * w.weight1;
+            if (w.weight2 > 0) point += supportMatrices[w.boneIndex2].MultiplyPoint3x4(p) * w.weight2;
+            if (w.weight3 > 0) point += supportMatrices[w.boneIndex3].MultiplyPoint3x4(p) * w.weight3;
+            posedSupport[i] = point;
+            if (i == 0) posed = new Bounds(point, Vector3.zero);
+            else posed.Encapsulate(point);
+        }
+        Vector3 pivot = posed.center;
         Vector3 position = pivot - rotation * pivot;
-        // Support the rotating body above the floor using its rest bounds. The
-        // controller and camera stay upright; locomotion still goes through Move.
-        float radians = degrees * Mathf.Deg2Rad;
-        float bottom = pivot.y - Mathf.Abs(Mathf.Cos(radians)) * restBounds.extents.y
-            - Mathf.Abs(Mathf.Sin(radians)) * restBounds.extents.z;
+        float bottom = float.PositiveInfinity;
+        foreach (var point in posedSupport) bottom = Mathf.Min(bottom, (rotation * point + position).y);
         position.y += restBounds.min.y - bottom;
         rig.localRotation = rotation;
         rig.localPosition = position;
@@ -353,8 +408,8 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         bool torsoBone = bone == PlayerRigBone.Hips || bone == PlayerRigBone.Spine || bone == PlayerRigBone.Chest;
         if (torsoBone)
         {
-            // The source run leans too far forward on this mesh. Build an upright
-            // torso pose with opposing hip/shoulder rotation instead of copying that lean.
+            // Keep the same standing alignment in idle, walk and run. Only a small
+            // distributed lean is allowed; imported idle flexion must not become rest posture.
             float gaitPhase = runData != null ? runTime / runData.duration * Mathf.PI * 2 : phase;
             float cycle = Mathf.Sin(gaitPhase);
             float effort = Mathf.Lerp(0.65f, 1, sprintWeight);
@@ -362,13 +417,15 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             if (bone == PlayerRigBone.Hips)
                 gait = Quaternion.Euler(0, -cycle * torsoTwist * 0.45f * effort, cycle * 1.5f);
             else if (bone == PlayerRigBone.Spine)
-                gait = Quaternion.Euler(Mathf.Lerp(0.2f, runningLean * 0.45f, sprintWeight) + accelerationLean * 0.35f,
+                gait = Quaternion.Euler(runningLean * 0.45f * sprintWeight + accelerationLean * 0.2f,
                     cycle * torsoTwist * 0.25f * effort, -turnLean * 0.5f);
             else
-                gait = Quaternion.Euler(Mathf.Lerp(0.5f, runningLean * 0.55f, sprintWeight) + accelerationLean * 0.65f,
+                gait = Quaternion.Euler(runningLean * 0.55f * sprintWeight + accelerationLean * 0.3f,
                     cycle * torsoTwist * 0.75f * effort, -cycle * 2.5f - turnLean * 0.5f);
             if (walkData != null) gait = Quaternion.Slerp(walk, gait, sprintWeight);
-            Quaternion uprightIdle = Quaternion.Slerp(Quaternion.identity, idle, 0.35f);
+            if (runData != null && runData.standingPose)
+                gait = Quaternion.Slerp(gait, SampleMotion(runData, (int)bone, runTime), sprintWeight * 0.6f);
+            Quaternion uprightIdle = LimitTilt(idle, 0.35f);
             target = Quaternion.Slerp(uprightIdle, gait, stride);
         }
         else if (walkData == null && (bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm))
@@ -376,32 +433,41 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             // Preserve a readable arm swing even when retargeted clip rotations are small.
             target = Quaternion.Slerp(target, Quaternion.Euler(pitch, 0, roll), stride * 0.3f * (1 - sprintWeight));
         }
-        Quaternion airPose = jumpData != null && bone != PlayerRigBone.Spine
+        bool jumpTrack = jumpData != null && (bone != PlayerRigBone.Spine || jumpData.standingPose);
+        Quaternion airPose = jumpTrack
             ? SampleMotion(jumpData, (int)bone, jumpSampleTime) : Quaternion.Euler(pitch, 0, roll);
         target = Quaternion.Slerp(target, airPose, airWeight);
-        if (!airborne && jumpData != null && landing > 0 && bone != PlayerRigBone.Spine)
+        if (!airborne && jumpTrack && landing > 0)
         {
             float tailTime = Mathf.Lerp(jumpData.landing, 1, 1 - landing) * jumpData.duration;
             target = Quaternion.Slerp(target, SampleMotion(jumpData, (int)bone, tailTime), landing * 0.65f);
         }
-        if (player.IsRolling && rollData != null)
+        if (rollWeight > 0.001f && rollData != null)
         {
-            float progress = player.RollProgress;
-            float weight = Mathf.SmoothStep(0, 1, Mathf.Min(progress / 0.1f, (1 - progress) / 0.15f));
-            Quaternion rollPose = bone == PlayerRigBone.Hips ? Quaternion.identity
-                : bone == PlayerRigBone.Spine ? Quaternion.Euler(4, 0, 0)
-                : SampleMotion(rollData, (int)bone, progress * rollData.duration);
-            target = Quaternion.Slerp(target, rollPose, weight);
+            target = Quaternion.Slerp(target, TuckedRollPose(bone), rollWeight);
         }
         float limit = bone == PlayerRigBone.Hips ? 7 : bone == PlayerRigBone.Spine ? 7 : bone == PlayerRigBone.Chest ? 14
             : bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin ? 42 : 28;
         float running = RunAnimationWeight;
-        if (bone == PlayerRigBone.LeftThigh || bone == PlayerRigBone.RightThigh) limit = Mathf.Lerp(limit, 52, running);
-        else if (bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin) limit = Mathf.Lerp(limit, 72, running);
-        else if (bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm) limit = Mathf.Lerp(limit, 48, running);
+        if (bone == PlayerRigBone.LeftThigh || bone == PlayerRigBone.RightThigh) limit = Mathf.Lerp(limit, 70, running);
+        else if (bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin) limit = Mathf.Lerp(limit, 115, running);
+        else if (bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm) limit = Mathf.Lerp(limit, 75, running);
+        float jumping = JumpAnimationWeight;
+        float jumpLimit = bone == PlayerRigBone.LeftThigh || bone == PlayerRigBone.RightThigh ? 85
+            : bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin ? 115
+            : bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm ? 85
+            : bone == PlayerRigBone.Spine ? 10 : bone == PlayerRigBone.Chest ? 20 : limit;
+        limit = Mathf.Lerp(limit, jumpLimit, jumping);
+        float rollLimit = bone == PlayerRigBone.LeftThigh || bone == PlayerRigBone.RightThigh ? 105
+            : bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin ? 125
+            : bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm ? 80
+            : bone == PlayerRigBone.Spine || bone == PlayerRigBone.Chest ? 32 : limit;
+        limit = Mathf.Lerp(limit, rollLimit, rollWeight);
         target = Quaternion.RotateTowards(Quaternion.identity, target, limit);
         float strength = Mathf.Lerp(motionStrength, walkMotionStrength, WalkAnimationWeight);
-        target = Quaternion.Slerp(Quaternion.identity, target, Mathf.Lerp(strength, sprintMotionStrength, running));
+        strength = Mathf.Lerp(strength, jumpMotionStrength, jumping);
+        target = Quaternion.Slerp(Quaternion.identity, target,
+            Mathf.Lerp(Mathf.Lerp(strength, sprintMotionStrength, running), 1, rollWeight));
         // Small secondary motion is additive, so no imported action can freeze the
         // breathing, shoulder adjustment or relaxed elbow bend at its last frame.
         float living = secondaryMotion * (player.IsRolling ? 0.12f : 1);
@@ -424,6 +490,14 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             secondary.x = -5 * rest + breath * 0.9f + Mathf.Sin(lifeTime * 1.1f + (bone == PlayerRigBone.LeftForearm ? 0 : 0.9f));
         target *= Quaternion.Euler(secondary * living);
         target = Quaternion.RotateTowards(Quaternion.identity, target, limit + 3);
+        if (torsoBone)
+        {
+            // Budget tilt across the entire parent chain, rather than allowing
+            // every joint to bend by the full amount and accumulating a hunch.
+            float share = bone == PlayerRigBone.Hips ? 0.15f : bone == PlayerRigBone.Spine ? 0.35f : 0.5f;
+            Quaternion upright = LimitTilt(target, Mathf.Clamp(maxGroundedTorsoTilt, 0, 8) * share);
+            target = Quaternion.Slerp(upright, target, Mathf.Max(airWeight, rollWeight));
+        }
         if (bone == PlayerRigBone.LeftForearm || bone == PlayerRigBone.RightForearm)
         {
             // The source skeleton has a different arm basis. Discard its axial twist:
@@ -431,8 +505,28 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             Vector3 hinge = Vector3.Cross(Vector3.forward, joint.localPosition).normalized;
             target = ElbowHinge(target, hinge);
         }
-        float follow = bone == PlayerRigBone.Spine ? 0.7f : bone == PlayerRigBone.Chest ? 0.85f : 1;
+        float follow = Mathf.Lerp(bone == PlayerRigBone.Spine ? 0.7f : bone == PlayerRigBone.Chest ? 0.85f : 1, 2.5f, rollWeight);
         joint.localRotation = Quaternion.Slerp(joint.localRotation, target, 1 - Mathf.Pow(1 - blend, follow));
+    }
+
+    Quaternion TuckedRollPose(PlayerRigBone bone)
+    {
+        // The imported knees were relative to the original crouched mesh. Add
+        // a stable sagittal tuck for the corrected standing rest pose; discard
+        // axial limb twists that this generated rig cannot reproduce safely.
+        Quaternion sample = SampleMotion(rollData, (int)bone, player.RollProgress * rollData.duration);
+        float pitch = Mathf.DeltaAngle(0, sample.eulerAngles.x);
+        if (bone == PlayerRigBone.LeftThigh || bone == PlayerRigBone.RightThigh)
+            return Quaternion.Euler(-85 + Mathf.Clamp(pitch + 80, -15, 15) * 0.3f, 0, 0);
+        if (bone == PlayerRigBone.LeftShin || bone == PlayerRigBone.RightShin)
+            return Quaternion.Euler(110 + Mathf.Clamp(pitch - 30, -15, 15) * 0.3f, 0, 0);
+        if (bone == PlayerRigBone.LeftArm || bone == PlayerRigBone.RightArm)
+            return Quaternion.Euler(-65 + Mathf.Clamp(pitch + 60, -20, 20) * 0.2f, 0, bone == PlayerRigBone.LeftArm ? -8 : 8);
+        if (bone == PlayerRigBone.LeftForearm || bone == PlayerRigBone.RightForearm)
+            return Quaternion.AngleAxis(-25, Vector3.Cross(Vector3.forward, bones[(int)bone].localPosition).normalized);
+        if (bone == PlayerRigBone.Spine) return Quaternion.Euler(24, 0, 0);
+        if (bone == PlayerRigBone.Chest) return Quaternion.Euler(24 + Mathf.Clamp(pitch - 15, -10, 10) * 0.2f, 0, 0);
+        return Quaternion.identity;
     }
 
     Quaternion SampleWalking(PlayerRigBone bone)
@@ -460,6 +554,15 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
         float projected = Vector3.Dot(new Vector3(rotation.x, rotation.y, rotation.z), axis);
         float angle = Mathf.DeltaAngle(0, 2 * Mathf.Atan2(projected, rotation.w) * Mathf.Rad2Deg);
         return Quaternion.AngleAxis(Mathf.Clamp(angle, -30, 30), axis);
+    }
+
+    public static Quaternion LimitTilt(Quaternion rotation, float degrees)
+    {
+        Vector3 up = rotation * Vector3.up;
+        float tilt = Vector3.Angle(Vector3.up, up);
+        if (tilt <= Mathf.Max(0, degrees) || tilt < 0.0001f) return rotation;
+        Quaternion upright = Quaternion.FromToRotation(up, Vector3.up) * rotation;
+        return Quaternion.Slerp(upright, rotation, Mathf.Clamp01(degrees / tilt));
     }
 
     static Quaternion SampleMotion(MotionData data, int bone, float time)

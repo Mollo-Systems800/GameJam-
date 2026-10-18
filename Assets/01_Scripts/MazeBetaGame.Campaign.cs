@@ -8,7 +8,10 @@ public sealed class MazeAreaTheme
     public GameObject wallPrefab, floorPrefab, wallCorePrefab, wallCapPrefab;
     public GameObject exitFloorPrefab, exitMarkerPrefab, pitVisualPrefab;
     public GameObject platformPrefab, jumpTakeoffPrefab, jumpLandingPrefab;
-    public GameObject chairPrefab, shopkeeperPrefab;
+    public GameObject spikePrefab, spikeFloorPrefab;
+    public GameObject chairPrefab, storePrefab;
+    [UnityEngine.Serialization.FormerlySerializedAs("shopkeeperPrefab")]
+    public GameObject seatedWomanPrefab;
     public TextMesh worldLabelPrefab;
     public Color wallColor = new Color(0.25f, 0.3f, 0.35f);
     public Color floorColor = new Color(0.35f, 0.38f, 0.4f);
@@ -43,14 +46,18 @@ public sealed partial class MazeBetaGame
     GameObject EnvExitMarker => Pick(ActiveArea.exitMarkerPrefab, exitMarkerPrefab);
     GameObject EnvPit => Pick(ActiveArea.pitVisualPrefab, pitVisualPrefab);
     GameObject EnvPlatform => Pick(ActiveArea.platformPrefab, platformPrefab);
+    GameObject EnvSpike => Pick(ActiveArea.spikePrefab, spikePrefab);
+    GameObject EnvSpikeFloor => Pick(ActiveArea.spikeFloorPrefab, spikeFloorPrefab ? spikeFloorPrefab : EnvPit);
     GameObject EnvTakeoff => Pick(ActiveArea.jumpTakeoffPrefab, jumpTakeoffPrefab ? jumpTakeoffPrefab : EnvFloor);
     GameObject EnvLanding => Pick(ActiveArea.jumpLandingPrefab, jumpLandingPrefab ? jumpLandingPrefab : EnvFloor);
     GameObject EnvChair => Pick(ActiveArea.chairPrefab, chairPrefab);
-    GameObject EnvShopkeeper => Pick(ActiveArea.shopkeeperPrefab, shopkeeperPrefab);
+    GameObject EnvSeatedWoman => Pick(ActiveArea.seatedWomanPrefab, seatedWomanPrefab);
+    GameObject EnvStore => Pick(ActiveArea.storePrefab, storePrefab);
     TextMesh EnvLabel => ActiveArea.worldLabelPrefab ? ActiveArea.worldLabelPrefab : worldLabelPrefab;
 
     public void StartCampaign(int newSeed, int firstLevel = 1)
     {
+        ResetDefeatCycle();
         campaignSeed = newSeed;
         campaign = new MazeCampaignProgress(Mathf.Clamp(firstLevel, 1, MazeCampaignProgress.LevelCount) - 1);
         Begin(MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
@@ -59,6 +66,7 @@ public sealed partial class MazeBetaGame
     public bool AdvanceLevel()
     {
         if (!HasWon || !campaign.Advance()) return false;
+        ResetDefeatCycle();
         Begin(MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
         return true;
     }

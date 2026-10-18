@@ -103,6 +103,9 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     public void Begin(int newSeed)
     {
+        if (newSeed != ActiveSeed) LossesOnCurrentMaze = 0;
+        RetrySecondsRemaining = 0;
+        WaitingForRetry = false;
         if (generated)
         {
             generated.gameObject.SetActive(false);
@@ -113,9 +116,15 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         exitCount = 1;
         int mazeWidth = Mathf.Clamp(width, 3, 40), mazeHeight = Mathf.Clamp(height, 3, 40);
         int minimumExit = Mathf.CeilToInt((mazeWidth + mazeHeight - 2) * Mathf.Clamp(minimumExitDistanceRatio, 0.5f, 1));
-        Grid = new MazeGrid(mazeWidth, mazeHeight, newSeed, 1, alternativeRoutes, minimumExit);
+        Grid = new MazeGrid(mazeWidth, mazeHeight, newSeed, 1, alternativeRoutes, minimumExit, parkourEnabled ? parkourCellLength : 0);
         ApplyAreaTheme();
-        obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount);
+        residentCells = MazeSeatedResidents.Select(Grid, newSeed, seatedWomanCount, null);
+        residentZones.Clear();
+        obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount, residentCells);
+        spikeHazards.Clear();
+        parkourPlatforms.Clear();
+        foreach (int cell in Grid.ParkourCells)
+            if (Grid.IsParkourPit(cell)) obstacleCells.Add(cell);
         generated = new GameObject("Beta Generated Maze").transform;
         generated.SetParent(transform, false);
         Progress = new RunProgress();
@@ -129,8 +138,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         for (int cell = 0; cell < Grid.Count; cell++)
         {
             Vector3 position = CellPosition(cell);
-            if (obstacleCells.Contains(cell)) BuildJumpSection(cell);
-            else Module(EnvFloor, "Floor " + cell, position, new Vector3(cellSize, 0.2f, cellSize), false);
+            if (!Grid.IsParkourPit(cell))
+            {
+                if (obstacleCells.Contains(cell)) BuildJumpSection(cell);
+                else Module(EnvFloor, "Floor " + cell, position, new Vector3(cellSize, 0.2f, cellSize), false);
+            }
             for (int d = 0; d < 4; d++)
             {
                 if (Grid.IsOpen(cell, d)) continue;
@@ -143,6 +155,8 @@ public sealed partial class MazeBetaGame : MonoBehaviour
                 wall.rotation = Quaternion.Euler(0, d % 2 == 0 ? 0 : 90, 0);
             }
         }
+
+        BuildParkourZone();
 
         foreach (var exit in Grid.Exits)
         {
@@ -159,6 +173,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         var playerObject = Instantiate(playerPrefab, CellPosition(0) + Vector3.up * 0.1f, Quaternion.identity, generated);
         playerObject.name = "Player";
         Player = playerObject.GetComponent<Player>();
+        Player.Game = this;
         Player.baseSpeed = playerSpeed;
         Player.minimumSpeed = Mathf.Min(2.6f, playerSpeed);
         Player.slowdownEvery = slowdownEvery;
@@ -174,7 +189,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         int bestDifference = int.MaxValue;
         for (int i = 1; i < Grid.Count; i++)
         {
-            if (Grid.IsExitCell(i) || obstacleCells.Contains(i)) continue;
+            if (Grid.IsExitCell(i) || obstacleCells.Contains(i) || Grid.IsParkourCell(i) || residentCells.Contains(i)) continue;
             int difference = Mathf.Abs(distances[i] - desiredDistance);
             if (difference < bestDifference) { bossCell = i; bestDifference = difference; }
         }
@@ -212,7 +227,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
         var candidates = new List<int>();
         for (int i = 1; i < Grid.Count; i++)
-            if (i != bossCell && !Grid.IsExitCell(i) && !obstacleCells.Contains(i)) candidates.Add(i);
+            if (i != bossCell && !Grid.IsExitCell(i) && !obstacleCells.Contains(i) && !Grid.IsParkourCell(i) && !residentCells.Contains(i)) candidates.Add(i);
         var random = new System.Random(newSeed ^ 7919);
         for (int i = candidates.Count - 1; i > 0; i--)
         {
@@ -257,6 +272,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
 
     void Update()
     {
+        TickDefeatRestart();
         var keyboard = Keyboard.current;
         if (running && ((keyboard != null && keyboard.bKey.wasPressedThisFrame)
             || (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame))) SetShopOpen(!ShopOpen);
@@ -268,6 +284,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         if (!IsPlaying) return;
         Progress.Advance(Time.deltaTime);
         Player.SpeedMultiplier = Progress.SpeedMultiplier;
+        if (CheckSpikeContact()) return;
         if (Player.transform.position.y < fallDeathHeight)
         {
             DefeatReason = "CAISTE AL PRECIPICIO";
@@ -301,6 +318,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         Player.CanMove = false;
         Boss.IsActive = false;
         if (won) RecordWin();
+        else ScheduleDefeatRestart();
     }
 
     Transform Module(GameObject prefab, string objectName, Vector3 position, Vector3 size, bool wall)
@@ -308,7 +326,11 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         var root = new GameObject(objectName).transform;
         root.SetParent(generated);
         root.position = position;
-        if (prefab) FitVisual(prefab, root, size, false);
+        if (prefab)
+        {
+            var visual = FitVisual(prefab, root, size, false);
+            if (!wall) visual.transform.localPosition -= Vector3.up * size.y;
+        }
         else
         {
             var cube = Cube("Visual", root, wall ? wallMaterial : floorMaterial);
@@ -340,20 +362,14 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     {
         Vector3 centre = CellPosition(cell);
         bool vertical = Grid.IsOpen(cell, 0);
-        // Two safe lips and a raised stepping platform. No full floor collider exists underneath.
-        float lip = cellSize * 0.15f;
+        // A real edge-to-edge gap, too wide for the controller to step over.
+        float gap = Mathf.Min(EffectiveParkourGap, cellSize * 0.65f);
+        float lip = (cellSize - gap) * 0.5f;
         Vector3 axis = vertical ? Vector3.forward : Vector3.right;
         Vector3 lipSize = vertical ? new Vector3(cellSize, 0.2f, lip) : new Vector3(lip, 0.2f, cellSize);
-        Module(EnvTakeoff, "Jump takeoff " + cell, centre - axis * (cellSize - lip) * 0.5f, lipSize, false);
-        Module(EnvLanding, "Jump landing " + cell, centre + axis * (cellSize - lip) * 0.5f, lipSize, false);
-        Vector3 size = vertical ? new Vector3(cellSize * 0.55f, 0.35f, cellSize * 0.18f)
-                                    : new Vector3(cellSize * 0.18f, 0.35f, cellSize * 0.55f);
-        var platform = Module(EnvPlatform, "Jump platform " + cell, centre + Vector3.up * 0.35f, size, false);
-        if (!EnvPlatform)
-            foreach (var renderer in platform.GetComponentsInChildren<Renderer>()) renderer.sharedMaterial = platformMaterial;
-        var pit = Cube("Precipicio " + cell, generated, wallMaterial, EnvPit);
-        pit.transform.position = centre + Vector3.down * 5;
-        pit.transform.localScale = new Vector3(cellSize, 0.1f, cellSize);
+        ParkourModule(EnvTakeoff, "Jump takeoff " + cell, centre - axis * (cellSize - lip) * 0.5f, lipSize);
+        ParkourModule(EnvLanding, "Jump landing " + cell, centre + axis * (cellSize - lip) * 0.5f, lipSize);
+        BuildSpikeBed(centre, vertical, cellSize, "Jump spikes " + cell);
         Label("SALTA", centre + Vector3.up * 1.5f, generated, new Color(1, 0.75f, 0.2f), 0.08f);
     }
 
@@ -427,48 +443,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     {
         if (followCamera) followCamera.enabled = false;
         foreach (var material in materials) if (material) Destroy(material);
+        if (spikeMesh) Destroy(spikeMesh);
     }
 
-    void OnGUI()
-    {
-        if (!Player || !Boss) return;
-        float scale = Mathf.Max(0.55f, Mathf.Min(Screen.width / 1100f, Screen.height / 700f));
-        Matrix4x4 previous = GUI.matrix;
-        GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
-        float screenWidth = Screen.width / scale, screenHeight = Screen.height / scale;
-        GUI.Box(new Rect(12, 12, 570, 190), $"AREA {CurrentAreaIndex + 1}/3: {ActiveArea.areaName} | NIVEL {CurrentLevelInArea + 1}/3 ({CurrentLevelIndex + 1}/9)");
-        GUI.Label(new Rect(25, 40, 440, 25), $"Tiempo: {Elapsed:0}s   Semilla: {ActiveSeed}   Cajas: {Player.Collected}");
-        string movement = Player.IsRolling ? "RODANDO" : Player.IsSprinting ? "CORRIENDO"
-            : Player.PlanarSpeed > 0.1f ? "CAMINANDO" : "REPOSO";
-        GUI.Label(new Rect(25, 66, 540, 25), $"Tu velocidad: {Player.PlanarSpeed:0.00} | {movement} | Boss: {Boss.CurrentSpeed:0.00}");
-        GUI.Label(new Rect(25, 92, 440, 25), $"Boss acelera en {Boss.NextIncrease:0}s | Fatiga en {Player.NextSlowdown:0}s");
-        GUI.Label(new Rect(25, 118, 540, 25), "WASD / flechas / stick: mover | Shift / L3: correr | Esc: pausa");
-        GUI.Label(new Rect(25, 144, 540, 25), "Raton / stick: mirar | Espacio / A: saltar | C / Ctrl / B mando: rodar");
-        GUI.Label(new Rect(25, 170, 540, 25), $"Salidas: {Grid.Exits.Count} | Tramos de salto: {obstacleCells.Count} | Pastillas: restauran velocidad");
-        DrawRunHUD(screenWidth, screenHeight);
-        if ((!running || paused) && !ShopOpen)
-        {
-            Rect panel = new Rect(screenWidth / 2 - 235, screenHeight / 2 - 115, 470, 230);
-            GUI.Box(panel, paused ? "PAUSA" : CampaignComplete ? "COMPLETASTE LAS 3 AREAS" : HasWon ? "NIVEL COMPLETADO" : DefeatReason);
-            GUI.Label(new Rect(panel.x + 24, panel.y + 35, 425, 40), paused ? "Pulsa Esc para continuar."
-                : HasWon ? $"Tiempo: {Elapsed:0.0}s | Score final: {Progress.Score}" : "Prueba otra ruta y usa monedas en la tienda (B).");
-            if (HasWon && !paused)
-            {
-                string next = CampaignComplete ? "Nueva campana desde el area 1"
-                    : CurrentLevelInArea == 2 ? "Continuar a la siguiente area" : "Siguiente nivel";
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), next))
-                {
-                    if (CampaignComplete) StartCampaign(NewSeed());
-                    else AdvanceLevel();
-                }
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Repetir este nivel")) Begin(ActiveSeed);
-            }
-            else
-            {
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 95, 400, 40), "Reintentar este nivel (misma semilla)")) Begin(ActiveSeed);
-                if (GUI.Button(new Rect(panel.x + 35, panel.y + 150, 400, 40), "Nuevo laberinto para este nivel")) Begin(NewSeed());
-            }
-        }
-        GUI.matrix = previous;
-    }
 }

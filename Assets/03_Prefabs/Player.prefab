@@ -159,14 +159,17 @@ MonoBehaviour:
   walkMotionStrength: 0.85
   walkCycleDistance: 3.2
   motionStrength: 0.65
-  sprintMotionStrength: 0.9
-  torsoTwist: 9
-  runningLean: 3
-  hipSway: 0.004
+  sprintMotionStrength: 1
+  jumpMotionStrength: 0.95
+  torsoTwist: 6
+  runningLean: 1
+  maxGroundedTorsoTilt: 4
+  restPostureStrength: 1
+  hipSway: 0.003
   breathingStrength: 1
   secondaryMotion: 1
   actionBlendTime: 0.16
-  runMotion: {fileID: 4900000, guid: b4a472199e9f440881f0577c31127ee7, type: 3}
+  runMotion: {fileID: 4900000, guid: 8309b486acb54bc28db415d0f5798cbc, type: 3}
   jumpMotion: {fileID: 4900000, guid: 86c529fb84904df5bfc8b0051502780c, type: 3}
   rollMotion: {fileID: 4900000, guid: a32b7a630efd4785b0a04be7f05b3ca2, type: 3}
-  runReferenceSpeed: 4
+  runReferenceSpeed: 5.4

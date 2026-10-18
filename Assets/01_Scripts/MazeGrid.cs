@@ -21,8 +21,11 @@ public sealed class MazeGrid
     public static readonly int[] DX = { 0, 1, 0, -1 };
     public static readonly int[] DY = { 1, 0, -1, 0 };
     readonly int[] passages;
+    readonly List<int> parkourCells = new List<int>();
+    public IReadOnlyList<int> ParkourCells => parkourCells;
+    public int ParkourDirection { get; private set; }
 
-    public MazeGrid(int width, int height, int seed, int exitCount = 1, float alternativeRoutes = 0, int minimumExitDistance = 0)
+    public MazeGrid(int width, int height, int seed, int exitCount = 1, float alternativeRoutes = 0, int minimumExitDistance = 0, int parkourLength = 0)
     {
         Width = Math.Max(3, width);
         Height = Math.Max(3, height);
@@ -30,6 +33,7 @@ public sealed class MazeGrid
         passages = new int[Width * Height];
         // System.Random treats +n and -n identically; mix the sign into the seed first.
         var random = new Random(seed ^ (int)((uint)seed >> 16));
+        ReserveParkour(random, parkourLength);
         var visited = new bool[passages.Length];
         var stack = new Stack<int>();
         var choices = new int[4];
@@ -41,7 +45,7 @@ public sealed class MazeGrid
             for (int d = 0; d < 4; d++)
             {
                 int next = Neighbor(cell, d);
-                if (next >= 0 && !visited[next]) choices[count++] = d;
+                if (next >= 0 && !visited[next] && AllowsParkourEdge(cell, next, d)) choices[count++] = d;
             }
             if (count == 0) { stack.Pop(); continue; }
             int direction = choices[random.Next(count)];
@@ -51,6 +55,15 @@ public sealed class MazeGrid
             visited[neighbor] = true;
             stack.Push(neighbor);
         }
+        // DFS can reach the two ends independently. Open the complete reserved
+        // chain afterwards so no wall can split the jumping sequence in half.
+        for (int i = 1; i < parkourCells.Count; i++)
+        {
+            int from = parkourCells[i - 1], to = parkourCells[i];
+            if (!IsOpen(from, ParkourDirection)) ExtraConnectionCount++;
+            passages[from] |= 1 << ParkourDirection;
+            passages[to] |= 1 << ((ParkourDirection + 2) % 4);
+        }
         if (!float.IsNaN(alternativeRoutes) && alternativeRoutes > 0)
         {
             var walls = new List<int>();
@@ -58,7 +71,7 @@ public sealed class MazeGrid
                 for (int d = 0; d < 4; d++)
                 {
                     int next = Neighbor(cell, d);
-                    if (next > cell && !IsOpen(cell, d)) walls.Add(cell * 4 + d);
+                    if (next > cell && !IsOpen(cell, d) && AllowsParkourEdge(cell, next, d)) walls.Add(cell * 4 + d);
                 }
             for (int i = walls.Count - 1; i > 0; i--)
             {
@@ -110,6 +123,32 @@ public sealed class MazeGrid
             for (int c = 0; c < Count; c++) nearestExit[c] = Math.Min(nearestExit[c], fromExit[c]);
         }
     }
+
+    void ReserveParkour(Random random, int requested)
+    {
+        if (requested < 3 || Math.Max(Width, Height) < 5) return;
+        bool horizontal = Width >= 5 && (Height < 5 || random.Next(2) == 0);
+        ParkourDirection = horizontal ? 1 : 0;
+        int length = Math.Min(Math.Max(3, requested), (horizontal ? Width : Height) - 2);
+        int along = random.Next(1, (horizontal ? Width : Height) - length);
+        int across = random.Next(1, (horizontal ? Height : Width) - 1);
+        int cell = horizontal ? across * Width + along : along * Width + across;
+        for (int i = 0; i < length; i++)
+        {
+            parkourCells.Add(cell);
+            cell = Neighbor(cell, ParkourDirection);
+        }
+    }
+
+    public bool IsParkourCell(int cell) => parkourCells.Contains(cell);
+    public bool IsParkourPit(int cell)
+    {
+        int index = parkourCells.IndexOf(cell);
+        return index > 0 && index < parkourCells.Count - 1;
+    }
+
+    bool AllowsParkourEdge(int cell, int next, int direction) =>
+        direction % 2 == ParkourDirection % 2 || (!IsParkourPit(cell) && !IsParkourPit(next));
 
     public bool IsExitCell(int cell)
     {

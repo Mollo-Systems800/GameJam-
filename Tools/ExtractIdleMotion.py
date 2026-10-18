@@ -142,7 +142,94 @@ def reference_bases(objects, connections, rotations, time):
     return {name: world(model) for model, (name, _) in models.items()}
 
 
-def bake(source, destination, mode="idle", reference_source=None):
+def standing_tracks(objects, connections, rotations, start, sample_rate, frame_count, mode):
+    """Retarget segment directions to the corrected standing rig, not an idle delta."""
+    props = {p[1].split("\0")[0].split(":")[-1]:
+             {v[0]: v[4:] for n, _, items in children if n == "Properties70" for _, v, _ in items}
+             for name, p, children in objects if name == "Model"}
+    tracks = [{"bone": bone, "rotations": []} for bone in range(11)]
+
+    def clamp(value, low, high):
+        return max(low, min(high, value))
+
+    def rotate(q, v):
+        return multiply(multiply(q, tuple(v) + (0,)), inverse(q))[:3]
+
+    def normal(v):
+        length = math.sqrt(sum(c * c for c in v))
+        if length < 1e-8:
+            raise ValueError("Source skeleton has a zero-length limb")
+        return tuple(c / length for c in v)
+
+    def pitch(v):
+        return math.degrees(math.atan2(-v[2], -v[1]))
+
+    def bend(a, b):
+        return math.degrees(math.acos(clamp(sum(x * y for x, y in zip(a, b)), -1, 1)))
+
+    bind_world = reference_bases(objects, connections, {}, 0)
+
+    def direction(world, parent, child):
+        v = rotate(world[parent], props[child]["Lcl Translation"])
+        return normal((-v[0], v[1], v[2]))
+
+    for frame in range(frame_count):
+        world = reference_bases(objects, connections, rotations, start + frame / sample_rate)
+
+        def segment(parent, child):
+            return direction(world, parent, child)
+
+        def unity_rotation(q):
+            return (q[0], -q[1], -q[2], q[3])
+
+        def yaw(q):
+            forward = rotate(unity_rotation(q), (0, 0, 1))
+            return math.degrees(math.atan2(forward[0], forward[2]))
+
+        poses = {i: quaternion((0, 0, 0)) for i in range(11)}
+        for side, thigh, shin, arm, forearm in (("Left", 2, 3, 6, 7), ("Right", 4, 5, 8, 9)):
+            upper = segment(side + "UpLeg", side + "Leg")
+            lower = segment(side + "Leg", side + "Foot")
+            bind_upper = direction(bind_world, side + "UpLeg", side + "Leg")
+            bind_lower = direction(bind_world, side + "Leg", side + "Foot")
+            spread = math.degrees(math.atan2(upper[0], math.hypot(upper[1], upper[2])))
+            bind_spread = math.degrees(math.atan2(bind_upper[0], math.hypot(bind_upper[1], bind_upper[2])))
+            poses[thigh] = quaternion((clamp(pitch(upper) - pitch(bind_upper), -85, 65), 0, clamp(spread - bind_spread, -10, 10)))
+            poses[shin] = quaternion((clamp(bend(upper, lower) - bend(bind_upper, bind_lower), 0, 125), 0, 0))
+            upper = segment(side + "Arm", side + "ForeArm")
+            lower = segment(side + "ForeArm", side + "Hand")
+            spread = math.degrees(math.atan2(upper[0], math.hypot(upper[1], upper[2])))
+            rest_spread = math.degrees(math.atan2(-0.04 if side == "Left" else 0.04, 0.17))
+            poses[arm] = quaternion((clamp(pitch(upper) + 4, -85, 85), 0, clamp(spread - rest_spread, -12, 12)))
+            # This generated low-poly elbow supports a small hinge, not Mixamo's
+            # full axial rotation. Preserve the changing bend without twisting skin.
+            elbow = math.radians(clamp(bend(upper, lower) * 0.3, 0, 30)) * -0.5
+            axis = normal((0.17, -0.04 if side == "Left" else 0.04, 0))
+            poses[forearm] = tuple(c * math.sin(elbow) for c in axis) + (math.cos(elbow),)
+        hip_yaw = clamp(yaw(world["Hips"]), -6, 6)
+        spine = multiply(inverse(world["Hips"]), world["Spine"])
+        chest = multiply(inverse(world["Spine"]), world["Spine2"])
+        if mode == "run":
+            poses[0] = quaternion((0, hip_yaw, 0))
+            poses[10] = quaternion((0, clamp(yaw(spine), -3, 3), 0))
+            poses[1] = quaternion((0.5, clamp(yaw(chest), -5, 5), 0))
+        else:
+            def rotation_pitch(q):
+                x, y, z, w = unity_rotation(q)
+                return math.degrees(math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)))
+            poses[0] = quaternion((clamp(rotation_pitch(world["Hips"]), -3, 5), hip_yaw, 0))
+            bind_spine = multiply(inverse(bind_world["Hips"]), bind_world["Spine"])
+            bind_chest = multiply(inverse(bind_world["Spine"]), bind_world["Spine2"])
+            poses[10] = quaternion((clamp((rotation_pitch(spine) - rotation_pitch(bind_spine)) * 0.4, -4, 8), clamp(yaw(spine), -3, 3), 0))
+            poses[1] = quaternion((clamp((rotation_pitch(chest) - rotation_pitch(bind_chest)) * 0.4, -4, 6), clamp(yaw(chest), -5, 5), 0))
+        for bone, q in poses.items():
+            if q[3] < 0:
+                q = tuple(-v for v in q)
+            tracks[bone]["rotations"].append(dict(zip("xyzw", [round(v, 7) for v in q])))
+    return tracks
+
+
+def bake(source, destination, mode="idle", reference_source=None, phase_reference=None, standing_pose=False):
     objects, connections, curves, rotation, translation = motion_channels(source)
     mapping = {"Hips": 0, "Spine2": 1, "LeftUpLeg": 2, "LeftLeg": 3, "RightUpLeg": 4,
                "RightLeg": 5, "LeftArm": 6, "LeftForeArm": 7, "RightArm": 8, "RightForeArm": 9}
@@ -191,8 +278,44 @@ def bake(source, destination, mode="idle", reference_source=None):
                 delta = tuple(component / length for component in delta)
             frames.append(dict(zip("xyzw", [round(component, 7) for component in delta])))
         tracks.append({"bone": bone, "rotations": frames})
+    if standing_pose:
+        tracks = standing_tracks(objects, connections, rotation, start, sample_rate, frame_count, mode)
+        if loop:
+            closure = min(0.08, duration * 0.2)
+            for track in tracks:
+                first = track["rotations"][0]
+                for frame, q in enumerate(track["rotations"]):
+                    remaining = duration - frame / sample_rate
+                    if remaining >= closure:
+                        continue
+                    t = 1 - remaining / closure
+                    t = t * t * (3 - 2 * t)
+                    values = [q[k] * (1 - t) + first[k] * t for k in "xyzw"]
+                    length = math.sqrt(sum(v * v for v in values))
+                    track["rotations"][frame] = dict(zip("xyzw", [round(v / length, 7) for v in values]))
     result = {"source": source.name, "duration": duration, "sampleRate": sample_rate, "loop": loop, "tracks": tracks,
-              "takeoff": 0, "apex": 0.5, "landing": 1}
+              "takeoff": 0, "apex": 0.5, "landing": 1, "standingPose": standing_pose}
+    if phase_reference:
+        if not loop:
+            raise ValueError("Phase alignment requires a looping animation")
+        walking = json.loads(phase_reference.read_text(encoding="utf-8"))
+        reference_tracks = {track["bone"]: track["rotations"][0] for track in walking["tracks"]}
+        legs = [track for track in tracks if track["bone"] in (2, 3, 4, 5)]
+
+        def pose_error(frame):
+            error = 0
+            for track in legs:
+                a, b = track["rotations"][frame], reference_tracks[track["bone"]]
+                dot = min(1, abs(sum(a[axis] * b[axis] for axis in "xyzw")))
+                error += (2 * math.acos(dot)) ** 2
+            return error
+
+        offset = min(range(frame_count), key=pose_error)
+        for track in tracks:
+            frames = track["rotations"]
+            track["rotations"] = frames[offset:] + frames[:offset]
+        result["phaseOffset"] = offset / sample_rate
+        result["phaseReference"] = phase_reference.name
     if mode == "roll":
         # Keep the complete revolution outside the limited joint poses. Unwrap Euler
         # pitch before normalising to one turn, so quaternion shortest paths cannot
@@ -228,5 +351,7 @@ if __name__ == "__main__":
         bake_walk(project / "Assets/03_Prefabs/Animations/Walking.json")
         reference = project / "Assets/03_Prefabs/rigged character low poly@Breathing Idle.fbx"
         bake(project / "Assets/03_Prefabs/Standard Run.fbx", project / "Assets/03_Prefabs/Animations/StandardRun.json", "run", reference)
-        bake(project / "Assets/03_Prefabs/Jump.fbx", project / "Assets/03_Prefabs/Animations/Jump.json", "jump", reference)
+        bake(project / "Assets/03_Prefabs/Running.fbx", project / "Assets/03_Prefabs/Animations/Running.json", "run", reference,
+             project / "Assets/03_Prefabs/Animations/Walking.json", standing_pose=True)
+        bake(project / "Assets/03_Prefabs/Jump.fbx", project / "Assets/03_Prefabs/Animations/Jump.json", "jump", reference, standing_pose=True)
         bake(project / "Assets/03_Prefabs/Sprinting Forward Roll.fbx", project / "Assets/03_Prefabs/Animations/ForwardRoll.json", "roll", reference)

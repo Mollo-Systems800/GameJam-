@@ -112,8 +112,4 @@ public sealed class PlayerFollowCamera : MonoBehaviour
         RestoreBody();
     }
 
-    void OnGUI()
-    {
-        if (game && game.IsPlaying) GUI.DrawTexture(new Rect(Screen.width * 0.5f - 1, Screen.height * 0.5f - 1, 3, 3), Texture2D.whiteTexture);
-    }
 }

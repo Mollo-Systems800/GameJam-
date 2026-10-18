@@ -21,6 +21,7 @@ public static class MazeBetaSetup
             return;
         }
         PrepareProp("AndersonShopkeeper", "Assets/ImportedProps/Anderson/Anderson.obj", new Vector3(1.6f, 1.65f, 0.6f));
+        PrepareProp("SeatedWoman", "Assets/ImportedProps/Anderson/AndersonSeated.obj", new Vector3(0.78f, 1.34f, 0.9f));
         PrepareProp("InterChair", "Assets/ImportedProps/Chair/InterChair.fbx", new Vector3(0.8f, 1, 0.8f));
     }
 
@@ -68,14 +69,14 @@ public static class MazeBetaSetup
         if (!game) game = new GameObject("Beta Game - Configuracion").AddComponent<MazeBetaGame>();
         if (!game.playerPrefab) game.playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/Player.prefab");
         if (!game.wallPrefab) game.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_3M.prefab");
-        if (!game.floorPrefab) game.floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Floor_3M.prefab");
+        if (!game.floorPrefab) game.floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/OfficeSmoothFloor.prefab");
         if (!game.bossVisualPrefab) game.bossVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SolicitudTrabajo.fbx");
         if (!game.platformPrefab) game.platformPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/JumpPlatform.prefab");
         if (!game.spadeEnemyPrefab) game.spadeEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SpadeEnemy.prefab");
         if (!game.turretEnemyPrefab) game.turretEnemyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/TurretEnemy.prefab");
         if (!game.projectilePrefab) game.projectilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/EnemyProjectile.prefab");
         if (!game.coinPrefab) game.coinPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/CoinPickup.prefab");
-        if (!game.shopkeeperPrefab) game.shopkeeperPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/AndersonShopkeeper.prefab");
+        if (!game.seatedWomanPrefab) game.seatedWomanPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/SeatedWoman.prefab");
         if (!game.chairPrefab) game.chairPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/InterChair.prefab");
         game.exitCount = 1;
         if (game.areas == null || game.areas.Length != 3) System.Array.Resize(ref game.areas, 3);
@@ -84,9 +85,9 @@ public static class MazeBetaSetup
         // Area 1 uses the global prefab choices. Later areas have distinct kits,
         // and all assigned overrides remain editable in the scene inspector.
         if (!game.areas[1].wallPrefab) game.areas[1].wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_2M.prefab");
-        if (!game.areas[1].floorPrefab) game.areas[1].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Floor_2M.prefab");
+        if (!game.areas[1].floorPrefab) game.areas[1].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/ArchiveSmoothFloor.prefab");
         if (!game.areas[2].wallPrefab) game.areas[2].wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Wall_Lamp.prefab");
-        if (!game.areas[2].floorPrefab) game.areas[2].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Maze/Prefabs/Floor_1M.prefab");
+        if (!game.areas[2].floorPrefab) game.areas[2].floorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/03_Prefabs/CourtyardSmoothFloor.prefab");
         if (!game.playerPrefab || !game.wallPrefab || !game.floorPrefab)
             throw new System.InvalidOperationException("Faltan los recursos del personaje o del laberinto.");
         Camera.main.transform.rotation = Quaternion.Euler(18, 0, 0);

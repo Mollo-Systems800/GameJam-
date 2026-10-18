@@ -23,17 +23,18 @@ def bake_walk(destination):
             cycle = math.sin(phase * math.tau)
             pitch = yaw = roll = 0
             if bone == 0:
-                yaw, roll = -cycle * 2, cycle * 1.2
+                yaw, roll = -cycle * 1.8, cycle * 0.8
             elif bone == 1:
-                pitch, yaw, roll = 0.7, cycle * 3, -cycle
+                yaw, roll = cycle * 2.5, -cycle * 0.6
             elif bone == 10:
-                pitch, yaw = 0.4, cycle
+                yaw = cycle * 0.8
             elif bone in (2, 4):
-                pitch = curve((-24, 0, 20, 0), phase + (0.5 if bone == 4 else 0))
+                # Longer support phase, then a smooth recovery and heel contact.
+                pitch = curve((-22, -8, 12, 20, 12, -4, -22, -25), phase + (0.5 if bone == 4 else 0))
             elif bone in (3, 5):
-                pitch = max(0, curve((6, 3, 16, 40), phase + (0.5 if bone == 5 else 0)))
+                pitch = max(0, curve((4, 3, 4, 12, 28, 38, 25, 10), phase + (0.5 if bone == 5 else 0)))
             elif bone in (6, 8):
-                pitch = math.cos((phase + (0.5 if bone == 8 else 0)) * math.tau) * 16
+                pitch = math.cos((phase + (0.5 if bone == 8 else 0)) * math.tau) * 14
                 roll = -2 if bone == 6 else 2
             elif bone in (7, 9):
                 pitch = -10 - 5 * (1 - math.cos((phase + (0.5 if bone == 9 else 0)) * math.tau))
