@@ -16,6 +16,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
     public GameObject resultPanel, shopPanel;
     public Text resultTitle, resultDetails, primaryLabel, shopBalance;
     public Button primaryButton, closeShopButton;
+    public Button returnToMenuButton;
     public Button[] purchaseButtons;
 
     void Awake()
@@ -24,6 +25,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
         shopButton.onClick.AddListener(() => game.SetShopOpen(true));
         closeShopButton.onClick.AddListener(() => game.SetShopOpen(false));
         primaryButton.onClick.AddListener(Continue);
+        if (returnToMenuButton) returnToMenuButton.onClick.AddListener(StartupMenu.ReturnToStart);
         for (int i = 0; i < purchaseButtons.Length; i++)
         {
             var kind = (PowerUpKind)i;
@@ -61,6 +63,7 @@ public sealed class MazeCanvasHUD : MonoBehaviour
         resultPanel.SetActive(result && !game.ShopOpen);
         // A defeat has no buttons: the countdown automatically starts the next attempt.
         primaryButton.gameObject.SetActive(result && !game.WaitingForRetry);
+        if (returnToMenuButton) returnToMenuButton.gameObject.SetActive(result && !game.WaitingForRetry && !game.ShopOpen);
         if (game.WaitingForRetry)
         {
             resultTitle.text = "INTENTO TERMINADO";

@@ -76,7 +76,7 @@ public static class MazeCanvasSetup
         hud.shopButton = Button("Open shop", root, "Tienda [B]", new Vector2(-186, -169), new Vector2(164, 38));
         hud.shopButton.GetComponent<RectTransform>().anchorMin = hud.shopButton.GetComponent<RectTransform>().anchorMax = Vector2.one;
 
-        var result = Modal("Result panel", root, 510, 320);
+        var result = Modal("Result panel", root, 510, 380);
         hud.resultPanel = result.gameObject;
         hud.resultTitle = Label("Title", result, "", new Vector2(24, -20), new Vector2(462, 44), 28);
         hud.resultTitle.alignment = TextAnchor.MiddleCenter;
@@ -84,6 +84,7 @@ public static class MazeCanvasSetup
         hud.resultDetails.alignment = TextAnchor.MiddleCenter;
         hud.primaryButton = Button("Continue", result, "Continuar", new Vector2(65, -260), new Vector2(380, 40));
         hud.primaryLabel = hud.primaryButton.GetComponentInChildren<Text>();
+        hud.returnToMenuButton = Button("Return to start", result, "Volver al inicio", new Vector2(65, -316), new Vector2(380, 40));
         result.gameObject.SetActive(false);
 
         var shop = Modal("Shop panel", root, 550, 378);

@@ -96,7 +96,16 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         exitMaterial = MakeMaterial(new Color(0.15f, 0.85f, 0.45f));
         platformMaterial = MakeMaterial(new Color(1f, 0.65f, 0.1f));
         InitializeRunFeatures();
-        StartCampaign(randomSeed ? NewSeed() : seed, startLevel);
+        if (MazeCampaignSave.ConsumeLaunch(out var launch))
+        {
+            checkpointEnabled = true;
+            StartCampaign(launch.CampaignSeed, launch.Level, launch.MazeSeed);
+        }
+        else
+        {
+            checkpointEnabled = !Application.isEditor;
+            StartCampaign(randomSeed ? NewSeed() : seed, startLevel);
+        }
     }
 
     static int NewSeed() => Guid.NewGuid().GetHashCode();
@@ -259,6 +268,8 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         followCamera.mouseSensitivity = mouseSensitivity;
         followCamera.fieldOfView = cameraFieldOfView;
         followCamera.Initialize(this, Player);
+        if (checkpointEnabled && recordResults)
+            MazeCampaignSave.Store(campaignSeed, CurrentLevelIndex + 1, ActiveSeed);
     }
 
     public Vector3 CellPosition(int cell) => new Vector3(cell % Grid.Width * cellSize, 0, cell / Grid.Width * cellSize);
@@ -317,7 +328,16 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         HasWon = won;
         Player.CanMove = false;
         Boss.IsActive = false;
-        if (won) RecordWin();
+        if (won)
+        {
+            RecordWin();
+            if (checkpointEnabled && recordResults)
+            {
+                if (CampaignComplete) MazeCampaignSave.Complete();
+                else MazeCampaignSave.Store(campaignSeed, CurrentLevelIndex + 2,
+                    MazeCampaignProgress.SeedForLevel(campaignSeed, CurrentLevelIndex + 1));
+            }
+        }
         else ScheduleDefeatRestart();
     }
 

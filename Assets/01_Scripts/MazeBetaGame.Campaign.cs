@@ -29,6 +29,7 @@ public sealed partial class MazeBetaGame
     };
     MazeCampaignProgress campaign = new MazeCampaignProgress();
     int campaignSeed;
+    bool checkpointEnabled;
     static readonly MazeAreaTheme FallbackArea = new MazeAreaTheme();
     public int CurrentLevelIndex => campaign.LevelIndex;
     public int CurrentAreaIndex => campaign.AreaIndex;
@@ -55,12 +56,12 @@ public sealed partial class MazeBetaGame
     GameObject EnvStore => Pick(ActiveArea.storePrefab, storePrefab);
     TextMesh EnvLabel => ActiveArea.worldLabelPrefab ? ActiveArea.worldLabelPrefab : worldLabelPrefab;
 
-    public void StartCampaign(int newSeed, int firstLevel = 1)
+    public void StartCampaign(int newSeed, int firstLevel = 1, int? savedMazeSeed = null)
     {
         ResetDefeatCycle();
         campaignSeed = newSeed;
         campaign = new MazeCampaignProgress(Mathf.Clamp(firstLevel, 1, MazeCampaignProgress.LevelCount) - 1);
-        Begin(MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
+        Begin(savedMazeSeed ?? MazeCampaignProgress.SeedForLevel(campaignSeed, campaign.LevelIndex));
     }
 
     public bool AdvanceLevel()

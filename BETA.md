@@ -232,3 +232,15 @@ Una derrota muestra su causa y una cuenta atrás automática de 4 segundos, sin 
 Los cuatro ItemData suministrados se asignaron al generador. Sus prefabs conservan las mallas originales y ahora apuntan a materiales URP Lit con las texturas TGA del paquete. También se corrigió el material ausente del efecto de escudo con transparencia. Los ítems evitan precipicios, parkour y zonas reservadas a señoras. GameJam > Configurar Canvas e items permite rehacer la configuración usando UI/Stats existente, sin crear otro Canvas. GameJam > Verificar Canvas items y derrotas prueba la integración en Play; resultado en Logs/canvas-playmode-result.txt.
 
 Verificación final: PASS en Unity. Comprobados los corazones con daño/curación, recogida física de monedas, compras y efectos, materiales de los cuatro ítems, reintentos primero/segundo/tercero, ausencia de botones al perder y avance al siguiente nivel. HUD y aviso de derrota revisados visualmente en Full HD. La espera de producción permanece en 4 segundos.
+
+### Escena de inicio
+
+Inicio.unity adapta la escena y la ilustración de Inicio.unitypackage. Se importaron esos recursos y los scripts del menú, sin reemplazar las copias del juego incluidas en el paquete. El panel se situó a la izquierda, con colores del HUD y del personaje, textos en español, transición breve, fondo que conserva su proporción y ajustes para diferentes resoluciones. Incluye nueva partida, continuar, controles, reinicio con confirmación y salir en la versión compilada. El menú se puede usar con ratón, teclado y mando mediante el EventSystem del Canvas.
+
+Inicio es la primera escena de Build Profiles; Nueva partida abre BetaMaze. Continuar recupera el comienzo del nivel y su semilla, incluida la semilla nueva tras dos derrotas. Ganar guarda el siguiente nivel y completar los nueve termina la campaña guardada. Monedas, vida y mejoras se reinician al cargar el comienzo del nivel. La pausa y la victoria del Canvas tienen Volver al inicio; la derrota mantiene su reinicio automático sin botones. Las pruebas abiertas directamente en BetaMaze desde el editor no reemplazan la partida guardada desde el menú.
+
+La integración resolvió marcadores de fusión que impedían compilar los scripts, materiales y escena, conservando la implementación reciente de Canvas, parkour, señoras sentadas y doble salto. Se conservaron copias de esos archivos antes de resolverlos en Logs/BeforeStartupMerge. No se completó ni confirmó la fusión de Git.
+
+GameJam > Configurar menu en Inicio rehace el diseño. GameJam > Verificar menu de inicio prueba nueva partida, checkpoints y navegación, conservando/restaurando las preferencias del jugador. Resultado: Logs/startup-playmode-result.txt.
+
+Resultado final: PASS en la instancia abierta de Unity para nueva partida, continuar por nivel/semilla, confirmaciones, avance y fin de campaña, guardado de laberintos regenerados y regreso desde el Canvas. Se restauraron las preferencias originales tras la prueba. Menú y guía de controles revisados visualmente en Full HD; el botón Cómo jugar se comprobó también con el ratón.
