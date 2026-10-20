@@ -31,9 +31,14 @@ public sealed partial class MazeBetaGame
     public void SaveCampaignCheckpoint()
     {
         if (!checkpointEnabled || !recordResults || CampaignComplete) return;
+        if (IsFinalDefeat)
+        {
+            MazeCampaignSave.Store(campaignSeed, 1, MazeCampaignProgress.SeedForLevel(campaignSeed, 0), 0, 0, true);
+            return;
+        }
         int level = CurrentLevelIndex + (HasWon ? 2 : 1);
         int mazeSeed = HasWon ? MazeCampaignProgress.SeedForLevel(campaignSeed, level - 1) : ActiveSeed;
-        MazeCampaignSave.Store(campaignSeed, level, mazeSeed, CampaignSeconds, CampaignClock.CompletedLevels, CampaignClock.Eligible);
+        MazeCampaignSave.Store(campaignSeed, level, mazeSeed, CampaignSeconds, CampaignClock.CompletedLevels, CampaignClock.Eligible, Progress.Health);
     }
     void OnApplicationPause(bool value) { if (value) SaveCampaignCheckpoint(); }
     void OnApplicationQuit() => SaveCampaignCheckpoint();

@@ -6,8 +6,8 @@ using UnityEngine.InputSystem;
 public sealed partial class MazeBetaGame : MonoBehaviour
 {
     [Header("Laberinto")]
-    [Range(3, 40)] public int width = 12;
-    [Range(3, 40)] public int height = 12;
+    [Range(3, 40)] public int width = 10;
+    [Range(3, 40)] public int height = 10;
     [Min(2)] public float cellSize = 3f;
     [Min(0.35f)] public float wallThickness = 0.75f;
     [Min(2)] public float wallHeight = 2.6f;
@@ -61,6 +61,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     public bool HasWon { get; private set; }
     public float Elapsed => Progress.Elapsed;
     public int ActiveSeed { get; private set; }
+    public MazeLevelDifficulty Difficulty { get; private set; }
     public IReadOnlyList<int> ObstacleCells => obstacleCells;
     public string DefeatReason { get; private set; }
     public bool DefeatedByBoss { get; private set; }
@@ -101,7 +102,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         if (MazeCampaignSave.ConsumeLaunch(out var launch, out bool newCampaign))
         {
             checkpointEnabled = true;
-            StartCampaign(launch.CampaignSeed, launch.Level, launch.MazeSeed, launch.Seconds, launch.CompletedLevels, launch.RankingEligible);
+            StartCampaign(launch.CampaignSeed, launch.Level, launch.MazeSeed, launch.Seconds, launch.CompletedLevels, launch.RankingEligible, launch.Lives);
             if (newCampaign) PlayNewGameIntro();
         }
         else
@@ -125,15 +126,18 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             Destroy(generated.gameObject);
         }
         labels.Clear();
+        exitSigns.Clear();
         ActiveSeed = newSeed;
         exitCount = 1;
-        int mazeWidth = Mathf.Clamp(width, 3, 40), mazeHeight = Mathf.Clamp(height, 3, 40);
+        Difficulty = new MazeLevelDifficulty(CurrentLevelIndex, width, height, obstacleCount,
+            spadeCount, turretCount, alternativeRoutes, bossSpeed, bossGracePeriod);
+        int mazeWidth = Difficulty.Width, mazeHeight = Difficulty.Height;
         int minimumExit = Mathf.CeilToInt((mazeWidth + mazeHeight - 2) * Mathf.Clamp(minimumExitDistanceRatio, 0.5f, 1));
-        Grid = new MazeGrid(mazeWidth, mazeHeight, newSeed, 1, alternativeRoutes, minimumExit, parkourEnabled ? parkourCellLength : 0);
+        Grid = new MazeGrid(mazeWidth, mazeHeight, newSeed, 1, Difficulty.AlternativeRoutes, minimumExit, parkourEnabled ? parkourCellLength : 0);
         ApplyAreaTheme();
         residentCells = MazeSeatedResidents.Select(Grid, newSeed, seatedWomanCount, null);
         residentZones.Clear();
-        obstacleCells = MazeObstacles.Select(Grid, newSeed, obstacleCount, residentCells);
+        obstacleCells = MazeObstacles.Select(Grid, newSeed, Difficulty.Obstacles, residentCells);
         spikeHazards.Clear();
         parkourPlatforms.Clear();
         foreach (int cell in Grid.ParkourCells)
@@ -142,7 +146,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         generated.SetParent(transform, false);
         if (wallTopJunctions == null) wallTopJunctions = new HashSet<Vector2Int>();
         else wallTopJunctions.Clear();
-        Progress = new RunProgress();
+        Progress = new RunProgress(Progress == null ? RunProgress.MaxHealth : Progress.Health);
         ShopOpen = false;
         pausedBeforeShop = false;
         paused = false;
@@ -182,6 +186,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             var marker = Cube("Exit marker", generated, exitMaterial, EnvExitMarker);
             marker.transform.position = exitPosition + Vector3.up * 0.025f;
             marker.transform.localScale = new Vector3(cellSize * 0.8f, 0.05f, cellSize * 0.8f);
+            BuildExitPortal(exitPosition - Direction(exit.Direction) * cellSize * .5f, Direction(exit.Direction));
         }
 
         if (!playerPrefab || !playerPrefab.GetComponent<Player>())
@@ -212,10 +217,10 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         var bossObject = Spawn(bossPrefab, "Boss - Se busca empleo", CellPosition(bossCell));
         Boss = bossObject.GetComponent<MazeBoss>();
         if (!Boss) Boss = bossObject.AddComponent<MazeBoss>();
-        Boss.startingSpeed = bossSpeed;
+        Boss.startingSpeed = Difficulty.BossSpeed;
         Boss.speedIncrease = bossIncrease;
         Boss.increaseEvery = bossIncreaseEvery;
-        Boss.gracePeriod = bossGracePeriod;
+        Boss.gracePeriod = Difficulty.BossGracePeriod;
         Boss.Initialize(this, bossCell);
         bool hasBossVisual = bossObject.GetComponentsInChildren<Renderer>().Length > 0;
         if (!hasBossVisual && bossVisualPrefab)
@@ -256,6 +261,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         }
         SpawnEncounters(bossCell);
         SpawnSuppliedProps(bossCell);
+        BuildThemeDecorations();
         Physics.SyncTransforms();
         followCamera.targetHeight = cameraTargetHeight;
         followCamera.followDistance = cameraDistance;
@@ -300,6 +306,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
         if (CheckSpikeContact()) return;
         if (Player.transform.position.y < fallDeathHeight)
         {
+            Progress.LoseLife();
             DefeatReason = "CAISTE AL PRECIPICIO";
             Finish(false);
             return;
@@ -319,6 +326,7 @@ public sealed partial class MazeBetaGame : MonoBehaviour
     void LateUpdate()
     {
         if (!Player || !view) return;
+        UpdateExitSigns();
         foreach (var label in labels)
             if (label) label.transform.rotation = view.transform.rotation;
     }
@@ -341,9 +349,10 @@ public sealed partial class MazeBetaGame : MonoBehaviour
             }
         }
         else { ScheduleDefeatRestart(); SaveCampaignCheckpoint(); }
-        MazeAudioDirector.Play(won ? (CampaignComplete?MazeSound.Victory:CurrentLevelInArea==2?MazeSound.AreaWin:MazeSound.LevelWin)
-            : DefeatedByBoss?MazeSound.DefeatBoss:MazeSound.DefeatHealth);
         PlayOutcomeCinematic();
+        if(!IsCinematicPlaying)
+            MazeAudioDirector.Play(won ? (CampaignComplete?MazeSound.Victory:CurrentLevelInArea==2?MazeSound.AreaWin:MazeSound.LevelWin)
+                : DefeatedByBoss?MazeSound.DefeatBoss:MazeSound.DefeatHealth);
     }
 
     Transform Module(GameObject prefab, string objectName, Vector3 position, Vector3 size, bool wall)

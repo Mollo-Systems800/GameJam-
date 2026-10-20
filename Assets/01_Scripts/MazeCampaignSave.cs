@@ -9,19 +9,20 @@ public static class MazeCampaignSave
     {
         public readonly int CampaignSeed, Level, MazeSeed;
         public readonly float Seconds;
-        public readonly int CompletedLevels;
+        public readonly int CompletedLevels, Lives;
         public readonly bool RankingEligible;
-        public Checkpoint(int seed, int level, int mazeSeed, float seconds = 0, int completedLevels = 0, bool rankingEligible = false)
-        { CampaignSeed = seed; Level = level; MazeSeed = mazeSeed; Seconds = seconds; CompletedLevels = completedLevels; RankingEligible = rankingEligible; }
+        public Checkpoint(int seed, int level, int mazeSeed, float seconds = 0, int completedLevels = 0, bool rankingEligible = false, int lives = RunProgress.MaxHealth)
+        { CampaignSeed = seed; Level = level; MazeSeed = mazeSeed; Seconds = seconds; CompletedLevels = completedLevels; RankingEligible = rankingEligible; Lives = Mathf.Clamp(lives, 1, RunProgress.MaxHealth); }
     }
     static Checkpoint? pendingLaunch;
     static bool pendingNewCampaign;
     public static bool HasSave => PlayerPrefs.GetInt(Prefix + "Exists", 0) == 1;
     public static bool HasRecords => PlayerPrefs.HasKey("MazeBeta.BestTime") || PlayerPrefs.HasKey("MazeBeta.BestScore") || CampaignRanking.Read().Count > 0;
 
-    public static void Store(int seed, int level, int mazeSeed, float seconds = 0, int completedLevels = 0, bool rankingEligible = false)
+    public static void Store(int seed, int level, int mazeSeed, float seconds = 0, int completedLevels = 0, bool rankingEligible = false, int lives = RunProgress.MaxHealth)
     {
         level = Mathf.Clamp(level, 1, MazeCampaignProgress.LevelCount);
+        PlayerPrefs.SetInt(Prefix + "Lives", Mathf.Clamp(lives, 1, RunProgress.MaxHealth));
         PlayerPrefs.SetInt(Prefix + "Seed", seed);
         PlayerPrefs.SetInt(Prefix + "Level", level);
         PlayerPrefs.SetInt(Prefix + "MazeSeed", mazeSeed);
@@ -39,7 +40,7 @@ public static class MazeCampaignSave
         if (level < 1 || level > MazeCampaignProgress.LevelCount) return false;
         int seed = PlayerPrefs.GetInt(Prefix + "Seed", 0);
         checkpoint = new Checkpoint(seed, level, PlayerPrefs.GetInt(Prefix + "MazeSeed", MazeCampaignProgress.SeedForLevel(seed, level - 1)),
-            PlayerPrefs.GetFloat(Prefix + "Seconds", 0), PlayerPrefs.GetInt(Prefix + "CompletedLevels", 0), PlayerPrefs.GetInt(Prefix + "RankingEligible", 0) == 1);
+            PlayerPrefs.GetFloat(Prefix + "Seconds", 0), PlayerPrefs.GetInt(Prefix + "CompletedLevels", 0), PlayerPrefs.GetInt(Prefix + "RankingEligible", 0) == 1, PlayerPrefs.GetInt(Prefix + "Lives", RunProgress.MaxHealth));
         return true;
     }
     public static void RequestNew()
@@ -73,7 +74,7 @@ public static class MazeCampaignSave
     {
         pendingLaunch = null;
         pendingNewCampaign = false;
-        foreach (string key in new[] { "Exists", "Seed", "Level", "MazeSeed", "Seconds", "CompletedLevels", "RankingEligible" }) PlayerPrefs.DeleteKey(Prefix + key);
+        foreach (string key in new[] { "Lives", "Exists", "Seed", "Level", "MazeSeed", "Seconds", "CompletedLevels", "RankingEligible" }) PlayerPrefs.DeleteKey(Prefix + key);
         PlayerPrefs.DeleteKey(CampaignRanking.StorageKey);
         PlayerPrefs.DeleteKey("MazeBeta.BestTime"); PlayerPrefs.DeleteKey("MazeBeta.BestScore");
         PlayerPrefs.Save();

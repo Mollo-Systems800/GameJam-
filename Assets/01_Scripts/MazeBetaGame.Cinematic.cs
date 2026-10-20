@@ -32,7 +32,7 @@ public sealed partial class MazeBetaGame
         {
             if (CampaignComplete) { beat=MazeStoryBeat.CampaignComplete;seconds=victoryCinematicDuration; }
             else if (CurrentLevelInArea==2) { beat=MazeStoryBeat.AreaComplete;seconds=areaCinematicDuration; }
-            else return;
+            else { beat=MazeStoryBeat.AreaComplete;seconds=5; }
         }
         else { beat=DefeatedByBoss?MazeStoryBeat.BossDefeat:MazeStoryBeat.HealthDefeat;seconds=defeatCinematicDuration; }
         if (!intro) intro=gameObject.AddComponent<NewGameCinematic>();

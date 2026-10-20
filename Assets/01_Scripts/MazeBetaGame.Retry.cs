@@ -6,7 +6,8 @@ public sealed partial class MazeBetaGame
     [Min(1)] public float defeatRestartDelay = 4;
     public int LossesOnCurrentMaze { get; private set; }
     public bool WaitingForRetry { get; private set; }
-    public bool RegenerateOnRetry => WaitingForRetry && LossesOnCurrentMaze >= 2;
+    public bool RegenerateOnRetry => WaitingForRetry;
+    public bool IsFinalDefeat => !HasWon && Progress != null && Progress.Health == 0;
     public float RetrySecondsRemaining { get; private set; }
     public bool IsPaused => paused;
     public bool IsRunning => running;
@@ -38,18 +39,27 @@ public sealed partial class MazeBetaGame
         }
         RetrySecondsRemaining = Mathf.Max(0, RetrySecondsRemaining - Time.unscaledDeltaTime);
         if (RetrySecondsRemaining > 0) return;
-        bool regenerate = RegenerateOnRetry;
-        int nextSeed = ActiveSeed;
-        if (regenerate)
+        if (IsFinalDefeat)
         {
-            nextSeed = NewSeed();
-            if (nextSeed == ActiveSeed) nextSeed = unchecked(ActiveSeed + 1);
+            StartCampaign(NewSeed());
+            RestartNotice = "Nueva campaña: nivel 1 · 3 vidas.";
         }
-        Begin(nextSeed);
-        if(regenerate)MazeAudioDirector.Play(MazeSound.NewMaze);
-        RestartNotice = regenerate ? "Nuevo laberinto generado tras 2 derrotas."
-            : "Segundo intento: el laberinto se mantiene. Otra derrota generará uno nuevo.";
+        else
+        {
+            RetryWithNewMaze();
+            RestartNotice = $"Nuevo laberinto · {Progress.Health} vidas restantes.";
+        }
         restartNoticeUntil = Time.unscaledTime + 6;
+    }
+
+    public void RetryWithNewMaze()
+    {
+        if (!WaitingForRetry || IsCinematicPlaying) return;
+        if (IsFinalDefeat) { StartCampaign(NewSeed()); return; }
+        int nextSeed = NewSeed();
+        if (nextSeed == ActiveSeed) nextSeed = unchecked(ActiveSeed + 1);
+        Begin(nextSeed);
+        MazeAudioDirector.Play(MazeSound.NewMaze);
     }
 
     public void ResumeGame()

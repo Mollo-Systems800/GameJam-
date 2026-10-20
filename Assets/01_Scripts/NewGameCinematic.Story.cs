@@ -8,6 +8,7 @@ public sealed partial class NewGameCinematic
     Quaternion visualRotation;
     void PrepareStory()
     {
+        if(actor) actor.PlayOutcomeMotion(game.HasWon, game.IsFinalDefeat);
         visualPosition=game.Player.visual.localPosition;visualRotation=game.Player.visual.localRotation;
         if(Kind==MazeStoryBeat.HealthDefeat && game.Player.transform.position.y<-.1f)
         {
@@ -22,10 +23,10 @@ public sealed partial class NewGameCinematic
             foreach(var collider in storyPaper.GetComponentsInChildren<Collider>())collider.enabled=false;
         }
     }
-    bool UsesOverview(int shot) => Kind==MazeStoryBeat.NewGame?shot==0:
+    bool UsesOverview(int shot) => game.IsFinalDefeat || game.HasWon ? false : Kind==MazeStoryBeat.NewGame?shot==0:
         Kind==MazeStoryBeat.AreaComplete?shot==0||shot==2:
         Kind==MazeStoryBeat.CampaignComplete?shot==2:Kind==MazeStoryBeat.HealthDefeat&&shot==2;
-    bool PaperShot(int shot) => Kind==MazeStoryBeat.NewGame?shot==2:
+    bool PaperShot(int shot) => game.IsFinalDefeat ? false : Kind==MazeStoryBeat.NewGame?shot==2:
         Kind==MazeStoryBeat.BossDefeat?shot!=0:Kind==MazeStoryBeat.CampaignComplete&&shot==1;
     Vector3 StoryOverviewTarget()
     {
@@ -34,7 +35,7 @@ public sealed partial class NewGameCinematic
     }
     void AnimateStory(float t,int shot)
     {
-        if(actor)
+        if(actor && !actor.HasOutcomeMotion)
         {
             actor.StoryPose=Kind==MazeStoryBeat.HealthDefeat?PlayerStoryPose.Exhausted:
                 Kind==MazeStoryBeat.NewGame||Kind==MazeStoryBeat.BossDefeat?PlayerStoryPose.Fear:PlayerStoryPose.Relief;
@@ -56,6 +57,7 @@ public sealed partial class NewGameCinematic
     }
     void RestoreStory()
     {
+        if(actor) actor.StopOutcomeMotion();
         if(game&&game.Player&&game.Player.visual)
         { game.Player.visual.localPosition=visualPosition;game.Player.visual.localRotation=visualRotation; }
         if(storyPaper){storyPaper.SetActive(false);Destroy(storyPaper);}storyPaper=null;
@@ -71,6 +73,20 @@ public sealed partial class NewGameCinematic
     void SetStoryText(int shot)
     {
         string area=game.ActiveArea.areaName;
+        if(game.IsFinalDefeat)
+        {
+            heading.text="SIN VIDAS / CONTRATACIÓN DEFINITIVA";
+            title.text="TE TOCÓ FIRMAR.";
+            subtitle.text="La fuga terminó. Volverás al nivel 1 con tres vidas.";
+            return;
+        }
+        if(game.HasWon && !game.CampaignComplete && game.CurrentLevelInArea != 2)
+        {
+            heading.text=$"{area.ToUpperInvariant()} / NIVEL {game.CurrentLevelIndex+1}";
+            title.text="¡NIVEL SUPERADO!";
+            subtitle.text=$"Un trámite menos. Conservas {game.Progress.Health} vidas para seguir escapando.";
+            return;
+        }
         string[] titles,lines;
         switch(Kind)
         {

@@ -328,7 +328,6 @@ public sealed partial class MazeBetaGame
             if (choice == 0) { if (CampaignComplete) StartNewCampaign(NewSeed()); else AdvanceLevel(); }
             else Begin(ActiveSeed);
         }
-        else if (choice == 0) Begin(ActiveSeed);
-        else Begin(NewSeed());
+        else RetryWithNewMaze();
     }
 }

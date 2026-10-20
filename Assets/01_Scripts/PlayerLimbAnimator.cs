@@ -54,6 +54,15 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
     float characterHeight;
     bool wasGrounded;
     float idleTime, idleWeight;
+    MotionData outcomeData;
+    float outcomeStarted;
+    public bool HasOutcomeMotion => outcomeData != null;
+    public void PlayOutcomeMotion(bool victory, bool finalDefeat)
+    {
+        outcomeData = victory || finalDefeat ? LoadMotion(Resources.Load<TextAsset>(victory ? "VictoryMotion" : "WritingMotion")) : null;
+        outcomeStarted = Time.unscaledTime;
+    }
+    public void StopOutcomeMotion() { outcomeData = null; }
     MotionData idleData;
     MotionData runData, jumpData;
     float runTime, jumpSampleTime;
@@ -519,7 +528,9 @@ public sealed class PlayerLimbAnimator : MonoBehaviour
             Vector3 hinge = Vector3.Cross(Vector3.forward, joint.localPosition).normalized;
             target = ElbowHinge(target, hinge);
         }
-        if(CinematicIdle && StoryPose!=PlayerStoryPose.Neutral)
+        if(CinematicIdle && outcomeData != null)
+            target = SampleMotion(outcomeData, (int)bone, Mathf.Min(Time.unscaledTime-outcomeStarted, outcomeData.duration));
+        else if(CinematicIdle && StoryPose!=PlayerStoryPose.Neutral)
             target=Quaternion.Slerp(target,StoryJointPose(bone),Mathf.Clamp01(StoryPoseWeight));
         float follow = Mathf.Lerp(bone == PlayerRigBone.Spine ? 0.7f : bone == PlayerRigBone.Chest ? 0.85f : 1, 2.5f, rollWeight);
         joint.localRotation = Quaternion.Slerp(joint.localRotation, target, 1 - Mathf.Pow(1 - blend, follow));

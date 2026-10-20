@@ -113,6 +113,11 @@ public sealed partial class NewGameCinematic : MonoBehaviour
             Vector3 front=game.Player.visual.forward;
             Vector3 offset=front*Mathf.Lerp(paper?1.55f:1.45f,paper?1.35f:1.25f,u)
                 +game.Player.visual.right*Mathf.Lerp(.45f,-.18f,u)+Vector3.up*.04f;
+            if(actor && actor.HasOutcomeMotion && !paper)
+            {
+                target=subject.position+Vector3.up*1.05f;
+                offset=front*2.35f+game.Player.visual.right*.35f+Vector3.up*.25f;
+            }
             position=SafePosition(target,target+offset,subject);fov=paper?67:55;
         }
         view.farClipPlane=Mathf.Max(savedFar,game.cellSize*20);

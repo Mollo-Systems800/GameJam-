@@ -168,7 +168,7 @@ MonoBehaviour:
   areas:
   - areaName: Oficinas
     wallPrefab: {fileID: 0}
-    floorPrefab: {fileID: 0}
+    floorPrefab: {fileID: 819904155145520628, guid: 2a1701805b5d3174cb7d41f6829b713b, type: 3}
     wallCorePrefab: {fileID: 0}
     wallCapPrefab: {fileID: 0}
     exitFloorPrefab: {fileID: 0}
@@ -181,6 +181,10 @@ MonoBehaviour:
     spikeFloorPrefab: {fileID: 0}
     chairPrefab: {fileID: 0}
     storePrefab: {fileID: 0}
+    decorationPrefabs:
+    - {fileID: 1891127381559468778, guid: 6011d537fbcd4f3498aa30238092dd29, type: 3}
+    - {fileID: 1157028143247034, guid: 5286e490afadac545ae3a1595b1e96e1, type: 3}
+    landscapePrefab: {fileID: 0}
     seatedResidentPrefab: {fileID: 0}
     seatedWomanPrefab: {fileID: 0}
     worldLabelPrefab: {fileID: 0}
@@ -188,7 +192,7 @@ MonoBehaviour:
     floorColor: {r: 0.35, g: 0.38, b: 0.4, a: 1}
   - areaName: Archivo
     wallPrefab: {fileID: 9116949253023563334, guid: d4e577e2f39b1f94ea266cdb4774b5e4, type: 3}
-    floorPrefab: {fileID: 4406354920526259025, guid: 10894468da4d596f9835052fc66ad757, type: 3}
+    floorPrefab: {fileID: 1839786891944690, guid: c96016c34e7be62488e588470988ef5b, type: 3}
     wallCorePrefab: {fileID: 0}
     wallCapPrefab: {fileID: 0}
     exitFloorPrefab: {fileID: 0}
@@ -201,6 +205,11 @@ MonoBehaviour:
     spikeFloorPrefab: {fileID: 0}
     chairPrefab: {fileID: 0}
     storePrefab: {fileID: 0}
+    decorationPrefabs:
+    - {fileID: 5502874014847026093, guid: fc69ba89bfd64934483386a41107d16f, type: 3}
+    - {fileID: 3563792095214042153, guid: 762c7ce7ac5a7b84390c6e08365bfa8f, type: 3}
+    - {fileID: 1361181076786324, guid: 388d2ede35ec91345943f17a010818fc, type: 3}
+    landscapePrefab: {fileID: 0}
     seatedResidentPrefab: {fileID: 0}
     seatedWomanPrefab: {fileID: 0}
     worldLabelPrefab: {fileID: 0}
@@ -208,7 +217,7 @@ MonoBehaviour:
     floorColor: {r: 0.42, g: 0.34, b: 0.25, a: 1}
   - areaName: Patio
     wallPrefab: {fileID: 4934031223854800032, guid: fdce670fe213a0844ac25663d01c9bf3, type: 3}
-    floorPrefab: {fileID: 4406354920526259025, guid: 0c385d4a5a335c11b862476e4d3b7bb4, type: 3}
+    floorPrefab: {fileID: 1329638177129074, guid: a25996a7d0674de40a8273b54b50aa7b, type: 3}
     wallCorePrefab: {fileID: 0}
     wallCapPrefab: {fileID: 0}
     exitFloorPrefab: {fileID: 0}
@@ -221,6 +230,12 @@ MonoBehaviour:
     spikeFloorPrefab: {fileID: 0}
     chairPrefab: {fileID: 0}
     storePrefab: {fileID: 0}
+    decorationPrefabs:
+    - {fileID: 1157028143247034, guid: 5286e490afadac545ae3a1595b1e96e1, type: 3}
+    - {fileID: 4363065753263768193, guid: 916cd135a71750a4483f84f736ebe36d, type: 3}
+    - {fileID: 6254209548634413423, guid: 01d6e8ec967d2c844920925bdebf5c7b, type: 3}
+    - {fileID: 1046453777464574, guid: 1aad01ae01d836647b215e40f1f4c1a7, type: 3}
+    landscapePrefab: {fileID: 2519895525379701335, guid: 3279d46e98077ab44ab85e34b99064f0, type: 3}
     seatedResidentPrefab: {fileID: 0}
     seatedWomanPrefab: {fileID: 0}
     worldLabelPrefab: {fileID: 0}
@@ -275,9 +290,9 @@ MonoBehaviour:
   spikePrefab: {fileID: 0}
   spikeFloorPrefab: {fileID: 0}
   seatedResidentPrefab: {fileID: 5528338544153564446, guid: 47d7e5d33c91fdb408229834fc15f470, type: 3}
-  defeatRestartDelay: 4
-  width: 12
-  height: 12
+  defeatRestartDelay: 3
+  width: 10
+  height: 10
   cellSize: 3
   wallThickness: 0.75
   wallHeight: 2.6
@@ -6488,7 +6503,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -306, y: -70}
+  m_AnchoredPosition: {x: -756, y: -31}
   m_SizeDelta: {x: 282, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &1764835631

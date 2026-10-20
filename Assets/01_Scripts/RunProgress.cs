@@ -7,7 +7,9 @@ public enum PowerUpKind { Speed, Shield, Heal }
 // Only completed runs can update the saved records.
 public sealed class RunProgress
 {
-    public const int MaxHealth = 3;
+    public const int MaxHealth = 3;
+    public RunProgress(int health = MaxHealth) { Health = Math.Max(0, Math.Min(MaxHealth, health)); }
+    public void LoseLife() { Health = Math.Max(0, Health - 1); }
 
     public int Coins { get; private set; }
     public int TotalCoins { get; private set; }

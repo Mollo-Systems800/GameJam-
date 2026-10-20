@@ -24,6 +24,7 @@ public sealed class MazeAudioCue
 public sealed class MazeAudioLibrary : ScriptableObject
 {
     public AudioClip menuMusic, normalMusic, threatMusic;
+    public AudioClip[] areaTracks;
     public AudioClip introMusic, areaMusic, victoryMusic, bossDefeatMusic, healthDefeatMusic;
     public MazeAudioCue[] cues;
     public AudioClip StoryMusic(MazeStoryBeat kind)

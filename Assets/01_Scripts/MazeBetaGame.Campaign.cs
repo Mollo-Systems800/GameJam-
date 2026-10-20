@@ -10,6 +10,8 @@ public sealed class MazeAreaTheme
     public GameObject platformPrefab, jumpTakeoffPrefab, jumpLandingPrefab;
     public GameObject spikePrefab, spikeFloorPrefab;
     public GameObject chairPrefab, storePrefab;
+    public GameObject[] decorationPrefabs;
+    public GameObject landscapePrefab;
     public GameObject seatedResidentPrefab;
     [UnityEngine.Serialization.FormerlySerializedAs("shopkeeperPrefab")]
     public GameObject seatedWomanPrefab;
@@ -58,9 +60,10 @@ public sealed partial class MazeBetaGame
     GameObject EnvStore => Pick(ActiveArea.storePrefab, storePrefab);
     TextMesh EnvLabel => ActiveArea.worldLabelPrefab ? ActiveArea.worldLabelPrefab : worldLabelPrefab;
 
-    public void StartCampaign(int newSeed, int firstLevel = 1, int? savedMazeSeed = null, float seconds = 0, int completedLevels = 0, bool rankingEligible = true)
+    public void StartCampaign(int newSeed, int firstLevel = 1, int? savedMazeSeed = null, float seconds = 0, int completedLevels = 0, bool rankingEligible = true, int lives = RunProgress.MaxHealth)
     {
         ResetDefeatCycle();
+        Progress = new RunProgress(lives);
         CampaignClock = new CampaignRunClock(firstLevel, seconds, completedLevels, rankingEligible);
         pendingRecord = 0; recordKey = CampaignRanking.StorageKey; RecordFeedback = null;
         campaignSeed = newSeed;

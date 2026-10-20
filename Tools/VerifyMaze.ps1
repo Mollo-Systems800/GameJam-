@@ -18,8 +18,10 @@ public static class MazeTopologyChecks
             int minimum = (int)Math.Ceiling((w + h - 2) * 0.75);
             var distant = new MazeGrid(w, h, seed, 1, 0.25f, minimum);
             Check(distant.Exits.Count == 1 && distant.ExtraConnectionCount > 0, "Single exit with alternative routes required");
-            Check(distant.ExitCell % w + distant.ExitCell / w >= minimum, "Exit too close to spawn");
+            Check(distant.ExitCell % w + distant.ExitCell / w >= (int)Math.Ceiling((double)minimum * (distant.ExitDirection == 2 ? w - 1 : distant.ExitDirection == 3 ? h - 1 : w + h - 2) / (w + h - 2)), "Exit too close to spawn");
             int exterior = 0, farthest = 0;
+            int sideMaximum = distant.ExitDirection == 2 ? w - 1 : distant.ExitDirection == 3 ? h - 1 : w + h - 2;
+            int sideMinimum = (int)Math.Ceiling((double)minimum * sideMaximum / (w + h - 2));
             var farDistances = distant.DistancesFrom(0);
             for (int c = 0; c < distant.Count; c++)
             {
@@ -28,7 +30,7 @@ public static class MazeTopologyChecks
                     if (distant.Neighbor(c, d) < 0)
                     {
                         if (distant.IsOpen(c, d)) exterior++;
-                        if (c % w + c / w >= minimum) farthest = Math.Max(farthest, farDistances[c]);
+                        if (d == distant.ExitDirection && c % w + c / w >= sideMinimum) farthest = Math.Max(farthest, farDistances[c]);
                     }
             }
             Check(exterior == 1 && farDistances[distant.ExitCell] == farthest, "Invalid distant exit selection");
@@ -42,7 +44,7 @@ public static class MazeTopologyChecks
                 for (int d = 0; d < 4; d++)
                 {
                     int neighbor = maze.Neighbor(c, d);
-                    if (neighbor < 0) longestBoundary = Math.Max(longestBoundary, distances[c]);
+                    if (neighbor < 0 && d == maze.ExitDirection && c != 0) longestBoundary = Math.Max(longestBoundary, distances[c]);
                     Check(maze.IsOpen(c, d) == twin.IsOpen(c, d), "Non-deterministic seed");
                     if (!maze.IsOpen(c, d)) continue;
                     if (neighbor < 0) { exits++; continue; }
@@ -153,7 +155,7 @@ public static class MazeTopologyChecks
             }
         }
         Check(signatures.Count > 990, "Insufficient variation across seeds");
-        return "PASS: 1000 seeds, dimensions 3..40; single distant exit with alternate routes, farthest eligible boundary, legacy multiple exits, deterministic generation, safe jumping sections and chase paths avoiding walls/blocked cells.";
+        return "PASS: 1000 seeds, dimensions 3..40; single distant exit with alternate routes, farthest eligible cell on a randomly selected side, legacy multiple exits, deterministic generation, safe jumping sections and chase paths avoiding walls/blocked cells.";
     }
 }
 '@)

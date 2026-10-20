@@ -88,7 +88,8 @@ public sealed class MazeGrid
                 ExtraConnectionCount++;
             }
         }
-        // Spread exits across distinct boundary cells after creating alternative routes.
+        // Choose a side before scoring distance. A corner spawn plus a global
+        // Manhattan cutoff otherwise excludes the south/west edges entirely.
         int[] distances = DistancesFrom(0);
         var candidates = new List<Exit>();
         minimumExitDistance = Math.Max(0, Math.Min(Width + Height - 2, minimumExitDistance));
@@ -96,24 +97,33 @@ public sealed class MazeGrid
         {
             // Physical distance as well as route length: a long detour must not
             // put the door just beside the spawn on the other side of a wall.
-            if (cell == 0 || cell % Width + cell / Width < minimumExitDistance) continue;
+            if (cell == 0) continue;
             for (int d = 0; d < 4; d++)
                 if (Neighbor(cell, d) < 0)
                 {
-                    candidates.Add(new Exit(cell, d));
-                    break;
+                    int sideMaximum = d == 2 ? Width - 1 : d == 3 ? Height - 1 : Width + Height - 2;
+                    int sideMinimum = (int)Math.Ceiling((double)minimumExitDistance * sideMaximum / (Width + Height - 2));
+                    if (cell % Width + cell / Width >= sideMinimum) candidates.Add(new Exit(cell, d));
                 }
         }
         var nearestExit = new int[Count];
         for (int i = 0; i < Count; i++) nearestExit[i] = int.MaxValue;
         for (int i = 0; i < Math.Min(Math.Max(1, exitCount), candidates.Count); i++)
         {
+            var sides = new List<int>();
+            for (int d = 0; d < 4; d++)
+                foreach (Exit candidate in candidates)
+                    if (candidate.Direction == d && !IsExitCell(candidate.Cell)) { sides.Add(d); break; }
+            if (sides.Count == 0) break;
+            int chosenSide = sides[random.Next(sides.Count)];
             int best = -1, score = -1;
+            int ties = 0;
             for (int c = 0; c < candidates.Count; c++)
             {
-                if (IsExitCell(candidates[c].Cell)) continue;
+                if (candidates[c].Direction != chosenSide || IsExitCell(candidates[c].Cell)) continue;
                 int value = Math.Min(distances[candidates[c].Cell], nearestExit[candidates[c].Cell]);
-                if (value > score) { best = c; score = value; }
+                if (value > score) { best = c; score = value; ties = 1; }
+                else if (value == score && random.Next(++ties) == 0) best = c;
             }
             if (best < 0) break;
             Exit exit = candidates[best];

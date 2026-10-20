@@ -159,8 +159,7 @@ public sealed partial class MazeAudioDirector : MonoBehaviour
         if(!Instance||!Instance.library)return;
         Instance.ActiveStory=kind;Instance.story.Stop();Instance.story.clip=Instance.library.StoryMusic(kind);
         Instance.storyGain=0;
-        Play(kind==MazeStoryBeat.CampaignComplete?MazeSound.Victory:kind==MazeStoryBeat.AreaComplete?MazeSound.AreaWin:
-            kind==MazeStoryBeat.BossDefeat?MazeSound.DefeatBoss:kind==MazeStoryBeat.HealthDefeat?MazeSound.DefeatHealth:MazeSound.PageTurn);
+        if(kind==MazeStoryBeat.NewGame)Play(MazeSound.PageTurn);
     }
     public static void EndStory(){if(Instance)Instance.ActiveStory=null;}
     public static void StoryShot(MazeStoryBeat kind,int shot)
@@ -173,6 +172,11 @@ public sealed partial class MazeAudioDirector : MonoBehaviour
     {
         if(!Instance)return;
         Instance.game=owner;Instance.inMenu=false;Instance.ActiveStory=null;Instance.ThreatActive=false;
+        var tracks=Instance.library ? Instance.library.areaTracks : null;
+        if(tracks!=null && owner.CurrentAreaIndex<tracks.Length && tracks[owner.CurrentAreaIndex])
+        {
+            Instance.normal.Stop();Instance.normal.clip=tracks[owner.CurrentAreaIndex];
+        }
         foreach(var voice in Instance.voices)if(voice.spatialBlend>0)voice.Stop();
         if(owner.Player&&!owner.Player.GetComponent<PlayerAudio>())owner.Player.gameObject.AddComponent<PlayerAudio>();
         Play(MazeSound.LevelStart);

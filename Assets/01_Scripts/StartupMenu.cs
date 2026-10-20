@@ -45,6 +45,7 @@ public sealed class StartupMenu : MonoBehaviour
     {
         StartupRankingView.Ensure(this);
         audioSettings=MazeAudioSettingsView.Ensure(this,null);
+        MazeInterfaceDesign.Apply(this);
         Time.timeScale = 1;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
         if (backgroundDisplay && backgroundTexture && !backgroundDisplay.sprite)

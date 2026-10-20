@@ -47,7 +47,7 @@ public sealed partial class MazeBetaGame
 
     void SpawnEncounters(int bossCell)
     {
-        Encounters = new MazeEncounters(Grid, ActiveSeed, obstacleCells, bossCell, spadeCount, turretCount, coinCount, residentCells);
+        Encounters = new MazeEncounters(Grid, ActiveSeed, obstacleCells, bossCell, Difficulty.Spades, Difficulty.Turrets, coinCount, residentCells);
         for (int i = 0; i < Encounters.Spades.Count; i++)
         {
             int cell = Encounters.Spades[i];
@@ -190,14 +190,14 @@ public sealed partial class MazeBetaGame
     public bool HitPlayer(int damage, string reason, bool fromBoss = false, Vector3? hitSource = null)
     {
         if (!IsPlaying) return false;
-        if (!Progress.TakeDamage(damage))
+        if (!Progress.TakeDamage(fromBoss ? 1 : damage))
         {
             if(damage>0 && Progress.ShieldSeconds>0)MazeAudioDirector.Play(MazeSound.ShieldHit);
             return false;
         }
         Player.ReactToDamage(hitSource);
         MazeAudioDirector.Play(MazeSound.Hurt);
-        if (Progress.Health == 0)
+        if (fromBoss || Progress.Health == 0)
         {
             DefeatReason = reason;
             DefeatedByBoss = fromBoss;
